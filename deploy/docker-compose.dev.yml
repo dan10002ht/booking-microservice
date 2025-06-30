@@ -1,0 +1,244 @@
+version: "3.8"
+
+services:
+  # Master PostgreSQL instance
+  postgres-master:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: booking_system_auth
+      POSTGRES_USER: booking_user
+      POSTGRES_PASSWORD: booking_pass
+    ports:
+      - "55432:5432"
+    volumes:
+      - postgres_master_data:/var/lib/postgresql/data
+      - ./postgres-master-init:/docker-entrypoint-initdb.d
+    networks:
+      - booking-net
+    command: >
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=3
+      -c max_replication_slots=3
+      -c hot_standby=on
+      -c archive_mode=on
+      -c archive_command='test ! -f /var/lib/postgresql/backup_in_progress && (test ! -f /var/lib/postgresql/archive/%f || cp %p /var/lib/postgresql/archive/%f)'
+      -c archive_timeout=60
+
+  # Slave PostgreSQL instance 1
+  postgres-slave1:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: booking_system_auth
+      POSTGRES_USER: booking_user
+      POSTGRES_PASSWORD: booking_pass
+      POSTGRES_MASTER_HOST: postgres-master
+      POSTGRES_MASTER_PORT: 5432
+      POSTGRES_MASTER_USER: booking_user
+      POSTGRES_MASTER_PASSWORD: booking_pass
+    ports:
+      - "55433:5432"
+    volumes:
+      - postgres_slave1_data:/var/lib/postgresql/data
+      - ./postgres-slave-init:/docker-entrypoint-initdb.d
+    networks:
+      - booking-net
+    depends_on:
+      - postgres-master
+    command: >
+      postgres
+      -c hot_standby=on
+      -c primary_conninfo='host=postgres-master port=5432 user=booking_user password=booking_pass'
+      -c restore_command='cp /var/lib/postgresql/archive/%f %p'
+      -c recovery_target_timeline='latest'
+
+  # Slave PostgreSQL instance 2 (optional)
+  postgres-slave2:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: booking_system_auth
+      POSTGRES_USER: booking_user
+      POSTGRES_PASSWORD: booking_pass
+      POSTGRES_MASTER_HOST: postgres-master
+      POSTGRES_MASTER_PORT: 5432
+      POSTGRES_MASTER_USER: booking_user
+      POSTGRES_MASTER_PASSWORD: booking_pass
+    ports:
+      - "55434:5432"
+    volumes:
+      - postgres_slave2_data:/var/lib/postgresql/data
+      - ./postgres-slave-init:/docker-entrypoint-initdb.d
+    networks:
+      - booking-net
+    depends_on:
+      - postgres-master
+    command: >
+      postgres
+      -c hot_standby=on
+      -c primary_conninfo='host=postgres-master port=5432 user=replicator password=replicator_pass'
+      -c restore_command='cp /var/lib/postgresql/archive/%f %p'
+      -c recovery_target_timeline='latest'
+
+  # Legacy single postgres instance (for backward compatibility)
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: booking_system
+      POSTGRES_USER: booking_user
+      POSTGRES_PASSWORD: booking_pass
+    ports:
+      - "55435:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - booking-net
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "56379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - booking-net
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "52181:2181"
+    networks:
+      - booking-net
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      - zookeeper
+    ports:
+      - "59092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+      - booking-net
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "59090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - booking-net
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "53001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - booking-net
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - "59200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - booking-net
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    ports:
+      - "55601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    networks:
+      - booking-net
+
+  gateway:
+    build:
+      context: ../gateway
+      dockerfile: Dockerfile
+    ports:
+      - "53000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - REDIS_URL=redis://redis:6379
+      - JWT_SECRET=dev_jwt_secret
+      - JWT_REFRESH_SECRET=dev_refresh_secret
+      - GRPC_AUTH_SERVICE_URL=auth-service:50051
+      - GRPC_USER_SERVICE_URL=user-profile:50052
+      - GRPC_EVENT_SERVICE_URL=event-management:50053
+      - GRPC_BOOKING_SERVICE_URL=booking-service:50054
+      - GRPC_BOOKING_WORKER_URL=booking-worker:50055
+      - GRPC_PAYMENT_SERVICE_URL=payment-service:50056
+      - GRPC_TICKET_SERVICE_URL=ticket-service:50057
+      - GRPC_NOTIFICATION_SERVICE_URL=notification-service:50058
+      - GRPC_ANALYTICS_SERVICE_URL=analytics-service:50059
+      - GRPC_PRICING_SERVICE_URL=pricing-service:50060
+      - GRPC_SUPPORT_SERVICE_URL=support-service:50061
+      - GRPC_INVOICE_SERVICE_URL=invoice-service:50062
+    depends_on:
+      - redis
+      - auth-service
+    volumes:
+      - ../gateway:/app
+      - /app/node_modules
+    networks:
+      - booking-net
+    restart: unless-stopped
+
+  auth-service:
+    build:
+      context: ../auth-service
+      dockerfile: Dockerfile
+    ports:
+      - "50051:50051"
+    environment:
+      - NODE_ENV=development
+      - PORT=50051
+      - HOST=0.0.0.0
+      - DB_HOST=postgres-master
+      - DB_PORT=5432
+      - DB_NAME=booking_system_auth
+      - DB_USER=booking_user
+      - DB_PASSWORD=booking_pass
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=dev_jwt_secret
+      - JWT_REFRESH_SECRET=dev_refresh_secret
+    depends_on:
+      - postgres-master
+      - redis
+    volumes:
+      - ../auth-service:/app
+      - /app/node_modules
+    networks:
+      - booking-net
+    restart: unless-stopped
+
+volumes:
+  postgres_master_data:
+  postgres_slave1_data:
+  postgres_slave2_data:
+  postgres_data:
+  redis_data:
+  grafana_data:
+  elasticsearch_data:
+
+networks:
+  booking-net:
+    driver: bridge

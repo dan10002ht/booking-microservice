@@ -1,0 +1,290 @@
+syntax = "proto3";
+
+package security;
+
+// Security Service
+service SecurityService {
+  // Event Management
+  rpc SubmitEvent(SubmitEventRequest) returns (SubmitEventResponse);
+  rpc GetEvents(GetEventsRequest) returns (GetEventsResponse);
+  
+  // Alert Management
+  rpc GetAlerts(GetAlertsRequest) returns (GetAlertsResponse);
+  rpc AcknowledgeAlert(AcknowledgeAlertRequest) returns (AcknowledgeAlertResponse);
+  
+  // Incident Management
+  rpc GetIncidents(GetIncidentsRequest) returns (GetIncidentsResponse);
+  rpc ResolveIncident(ResolveIncidentRequest) returns (ResolveIncidentResponse);
+  
+  // Risk Assessment
+  rpc GetRiskScore(GetRiskScoreRequest) returns (GetRiskScoreResponse);
+  rpc UpdateRiskScore(UpdateRiskScoreRequest) returns (UpdateRiskScoreResponse);
+  
+  // Analytics
+  rpc GetAnalytics(GetAnalyticsRequest) returns (GetAnalyticsResponse);
+  rpc GetThreatPatterns(GetThreatPatternsRequest) returns (GetThreatPatternsResponse);
+}
+
+// Health Service
+service HealthService {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Event Management Messages
+message SubmitEventRequest {
+  string user_id = 1;
+  string service_name = 2;
+  string event_type = 3;
+  string event_category = 4;
+  string severity = 5;
+  bytes event_data = 6;
+  string ip_address = 7;
+  string user_agent = 8;
+  bytes location_data = 9;
+}
+
+message SubmitEventResponse {
+  bool success = 1;
+  string event_id = 2;
+  string message = 3;
+}
+
+message GetEventsRequest {
+  string user_id = 1;
+  string service_name = 2;
+  string event_type = 3;
+  string severity = 4;
+  string start_date = 5;
+  string end_date = 6;
+  int32 page = 7;
+  int32 limit = 8;
+}
+
+message GetEventsResponse {
+  bool success = 1;
+  repeated SecurityEvent events = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  string message = 6;
+}
+
+// Alert Management Messages
+message GetAlertsRequest {
+  string user_id = 1;
+  string alert_type = 2;
+  string status = 3;
+  string start_date = 4;
+  string end_date = 5;
+  int32 page = 6;
+  int32 limit = 7;
+}
+
+message GetAlertsResponse {
+  bool success = 1;
+  repeated SecurityAlert alerts = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  string message = 6;
+}
+
+message AcknowledgeAlertRequest {
+  string alert_id = 1;
+  string acknowledged_by = 2;
+  string notes = 3;
+}
+
+message AcknowledgeAlertResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Incident Management Messages
+message GetIncidentsRequest {
+  string user_id = 1;
+  string incident_type = 2;
+  string status = 3;
+  string start_date = 4;
+  string end_date = 5;
+  int32 page = 6;
+  int32 limit = 7;
+}
+
+message GetIncidentsResponse {
+  bool success = 1;
+  repeated SecurityIncident incidents = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  string message = 6;
+}
+
+message ResolveIncidentRequest {
+  string incident_id = 1;
+  string resolved_by = 2;
+  string resolution_notes = 3;
+  string resolution_type = 4;
+}
+
+message ResolveIncidentResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Risk Assessment Messages
+message GetRiskScoreRequest {
+  string user_id = 1;
+  string entity_type = 2;
+  string entity_id = 3;
+}
+
+message GetRiskScoreResponse {
+  bool success = 1;
+  int32 risk_score = 2;
+  string risk_level = 3;
+  repeated RiskFactor risk_factors = 4;
+  string message = 5;
+}
+
+message UpdateRiskScoreRequest {
+  string user_id = 1;
+  string entity_type = 2;
+  string entity_id = 3;
+  int32 risk_score = 4;
+  string reason = 5;
+}
+
+message UpdateRiskScoreResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Analytics Messages
+message GetAnalyticsRequest {
+  string user_id = 1;
+  string start_date = 2;
+  string end_date = 3;
+  string metric_type = 4;
+}
+
+message GetAnalyticsResponse {
+  bool success = 1;
+  SecurityAnalytics analytics = 2;
+  string message = 3;
+}
+
+message GetThreatPatternsRequest {
+  string pattern_type = 1;
+  string start_date = 2;
+  string end_date = 3;
+  int32 limit = 4;
+}
+
+message GetThreatPatternsResponse {
+  bool success = 1;
+  repeated ThreatPattern patterns = 2;
+  string message = 3;
+}
+
+// Health Check Messages
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  string status = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}
+
+// Data Models
+message SecurityEvent {
+  string id = 1;
+  string user_id = 2;
+  string service_name = 3;
+  string event_type = 4;
+  string event_category = 5;
+  string severity = 6;
+  bytes event_data = 7;
+  string ip_address = 8;
+  string user_agent = 9;
+  bytes location_data = 10;
+  int32 risk_score = 11;
+  bool is_processed = 12;
+  string created_at = 13;
+  string processed_at = 14;
+}
+
+message SecurityAlert {
+  string id = 1;
+  string event_id = 2;
+  string alert_type = 3;
+  string alert_category = 4;
+  string severity = 5;
+  string status = 6;
+  string title = 7;
+  string description = 8;
+  bytes alert_data = 9;
+  string acknowledged_by = 10;
+  string acknowledged_at = 11;
+  string notes = 12;
+  string created_at = 13;
+  string updated_at = 14;
+}
+
+message SecurityIncident {
+  string id = 1;
+  string incident_type = 2;
+  string severity = 3;
+  string status = 4;
+  string title = 5;
+  string description = 6;
+  bytes incident_data = 7;
+  repeated string affected_users = 8;
+  repeated string affected_services = 9;
+  string assigned_to = 10;
+  string resolved_by = 11;
+  string resolved_at = 12;
+  string resolution_notes = 13;
+  string resolution_type = 14;
+  string created_at = 15;
+  string updated_at = 16;
+}
+
+message RiskFactor {
+  string factor_type = 1;
+  string factor_name = 2;
+  int32 weight = 3;
+  int32 score = 4;
+  string description = 5;
+}
+
+message SecurityAnalytics {
+  string user_id = 1;
+  int32 total_events = 2;
+  int32 high_severity_events = 3;
+  int32 total_alerts = 4;
+  int32 open_alerts = 5;
+  int32 total_incidents = 6;
+  int32 open_incidents = 7;
+  double average_risk_score = 8;
+  repeated string top_threats = 9;
+  map<string, int32> events_by_service = 10;
+  map<string, int32> events_by_severity = 11;
+  map<string, int32> events_by_hour = 12;
+  map<string, int32> events_by_day = 13;
+}
+
+message ThreatPattern {
+  string pattern_id = 1;
+  string pattern_type = 2;
+  string pattern_name = 3;
+  string description = 4;
+  double confidence_score = 5;
+  int32 occurrence_count = 6;
+  string first_seen = 7;
+  string last_seen = 8;
+  repeated string indicators = 9;
+  bytes pattern_data = 10;
+} 

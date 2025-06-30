@@ -1,0 +1,166 @@
+syntax = "proto3";
+
+package booking;
+
+import "google/protobuf/timestamp.proto";
+
+// Booking Service
+service BookingService {
+  // Booking Management
+  rpc CreateBooking(CreateBookingRequest) returns (BookingResponse);
+  rpc GetBooking(GetBookingRequest) returns (BookingResponse);
+  rpc UpdateBooking(UpdateBookingRequest) returns (BookingResponse);
+  rpc CancelBooking(CancelBookingRequest) returns (CancelBookingResponse);
+  rpc ListBookings(ListBookingsRequest) returns (ListBookingsResponse);
+  rpc GetUserBookings(GetUserBookingsRequest) returns (GetUserBookingsResponse);
+  
+  // Booking Operations
+  rpc ConfirmBooking(ConfirmBookingRequest) returns (ConfirmBookingResponse);
+  rpc ReserveSeats(ReserveSeatsRequest) returns (ReserveSeatsResponse);
+  rpc ReleaseSeats(ReleaseSeatsRequest) returns (ReleaseSeatsResponse);
+  
+  // Health Check
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+// Booking Management Messages
+message CreateBookingRequest {
+  string user_id = 1;
+  string event_id = 2;
+  int32 ticket_quantity = 3;
+  repeated string seat_numbers = 4;
+  string special_requests = 5;
+  map<string, string> metadata = 6;
+}
+
+message BookingResponse {
+  bool success = 1;
+  Booking booking = 2;
+  string message = 3;
+}
+
+message GetBookingRequest {
+  string booking_id = 1;
+}
+
+message UpdateBookingRequest {
+  string booking_id = 1;
+  int32 ticket_quantity = 2;
+  repeated string seat_numbers = 3;
+  string special_requests = 4;
+  map<string, string> metadata = 5;
+}
+
+message CancelBookingRequest {
+  string booking_id = 1;
+  string reason = 2;
+}
+
+message CancelBookingResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListBookingsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string status = 3;
+  string event_id = 4;
+  google.protobuf.Timestamp from_date = 5;
+  google.protobuf.Timestamp to_date = 6;
+}
+
+message ListBookingsResponse {
+  bool success = 1;
+  repeated Booking bookings = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  string message = 6;
+}
+
+message GetUserBookingsRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  string status = 4;
+}
+
+message GetUserBookingsResponse {
+  bool success = 1;
+  repeated Booking bookings = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  string message = 6;
+}
+
+message ConfirmBookingRequest {
+  string booking_id = 1;
+  string payment_reference = 2;
+}
+
+message ConfirmBookingResponse {
+  bool success = 1;
+  Booking booking = 2;
+  string message = 3;
+}
+
+message ReserveSeatsRequest {
+  string event_id = 1;
+  repeated string seat_numbers = 2;
+  string user_id = 3;
+  int32 timeout_seconds = 4;
+}
+
+message ReserveSeatsResponse {
+  bool success = 1;
+  repeated string reserved_seats = 2;
+  string reservation_id = 3;
+  google.protobuf.Timestamp expires_at = 4;
+  string message = 5;
+}
+
+message ReleaseSeatsRequest {
+  string reservation_id = 1;
+  repeated string seat_numbers = 2;
+}
+
+message ReleaseSeatsResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Health Check Messages
+message HealthRequest {
+  string service = 1;
+}
+
+message HealthResponse {
+  string status = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}
+
+// Data Models
+message Booking {
+  string id = 1;
+  string booking_reference = 2;
+  string user_id = 3;
+  string event_id = 4;
+  int32 ticket_quantity = 5;
+  repeated string seat_numbers = 6;
+  double total_amount = 7;
+  string currency = 8;
+  string status = 9;
+  string payment_status = 10;
+  string payment_reference = 11;
+  string special_requests = 12;
+  google.protobuf.Timestamp expires_at = 13;
+  google.protobuf.Timestamp confirmed_at = 14;
+  google.protobuf.Timestamp cancelled_at = 15;
+  string cancellation_reason = 16;
+  map<string, string> metadata = 17;
+  google.protobuf.Timestamp created_at = 18;
+  google.protobuf.Timestamp updated_at = 19;
+} 

@@ -1,0 +1,266 @@
+syntax = "proto3";
+
+package ticket;
+
+import "google/protobuf/timestamp.proto";
+
+// Ticket Service
+service TicketService {
+  // Ticket Management
+  rpc GetTickets(GetTicketsRequest) returns (GetTicketsResponse);
+  rpc GetTicket(GetTicketRequest) returns (GetTicketResponse);
+  rpc CreateTicket(CreateTicketRequest) returns (CreateTicketResponse);
+  rpc UpdateTicket(UpdateTicketRequest) returns (UpdateTicketResponse);
+  rpc DeleteTicket(DeleteTicketRequest) returns (DeleteTicketResponse);
+  
+  // Ticket Types
+  rpc GetTicketTypes(GetTicketTypesRequest) returns (GetTicketTypesResponse);
+  rpc CreateTicketType(CreateTicketTypeRequest) returns (CreateTicketTypeResponse);
+  rpc UpdateTicketType(UpdateTicketTypeRequest) returns (UpdateTicketTypeResponse);
+  rpc DeleteTicketType(DeleteTicketTypeRequest) returns (DeleteTicketTypeResponse);
+  
+  // Availability
+  rpc CheckAvailability(CheckAvailabilityRequest) returns (CheckAvailabilityResponse);
+  rpc GetAvailableTickets(GetAvailableTicketsRequest) returns (GetAvailableTicketsResponse);
+  rpc ReserveTickets(ReserveTicketsRequest) returns (ReserveTicketsResponse);
+  rpc ReleaseTickets(ReleaseTicketsRequest) returns (ReleaseTicketsResponse);
+  
+  // Health Check
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+// Ticket Management Messages
+message GetTicketsRequest {
+  string event_id = 1;
+  string ticket_type_id = 2;
+  string status = 3;
+  int32 page = 4;
+  int32 limit = 5;
+}
+
+message GetTicketsResponse {
+  bool success = 1;
+  repeated Ticket tickets = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  string message = 6;
+}
+
+message GetTicketRequest {
+  string ticket_id = 1;
+}
+
+message GetTicketResponse {
+  bool success = 1;
+  Ticket ticket = 2;
+  string message = 3;
+}
+
+message CreateTicketRequest {
+  string event_id = 1;
+  string ticket_type_id = 2;
+  string user_id = 3;
+  string booking_id = 4;
+  string seat_number = 5;
+  double price = 6;
+  string currency = 7;
+  map<string, string> metadata = 8;
+}
+
+message CreateTicketResponse {
+  bool success = 1;
+  Ticket ticket = 2;
+  string message = 3;
+}
+
+message UpdateTicketRequest {
+  string ticket_id = 1;
+  string status = 2;
+  string seat_number = 3;
+  map<string, string> metadata = 4;
+}
+
+message UpdateTicketResponse {
+  bool success = 1;
+  Ticket ticket = 2;
+  string message = 3;
+}
+
+message DeleteTicketRequest {
+  string ticket_id = 1;
+}
+
+message DeleteTicketResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Ticket Types Messages
+message GetTicketTypesRequest {
+  string event_id = 1;
+  bool include_availability = 2;
+}
+
+message GetTicketTypesResponse {
+  bool success = 1;
+  repeated TicketType ticket_types = 2;
+  string message = 3;
+}
+
+message CreateTicketTypeRequest {
+  string event_id = 1;
+  string name = 2;
+  string description = 3;
+  double price = 4;
+  string currency = 5;
+  int32 quantity = 6;
+  int32 max_per_purchase = 7;
+  int32 min_per_purchase = 8;
+  google.protobuf.Timestamp valid_from = 9;
+  google.protobuf.Timestamp valid_until = 10;
+  map<string, string> metadata = 11;
+}
+
+message CreateTicketTypeResponse {
+  bool success = 1;
+  TicketType ticket_type = 2;
+  string message = 3;
+}
+
+message UpdateTicketTypeRequest {
+  string ticket_type_id = 1;
+  string name = 2;
+  string description = 3;
+  double price = 4;
+  string currency = 5;
+  int32 quantity = 6;
+  int32 max_per_purchase = 7;
+  int32 min_per_purchase = 8;
+  google.protobuf.Timestamp valid_from = 9;
+  google.protobuf.Timestamp valid_until = 10;
+  string status = 11;
+  map<string, string> metadata = 12;
+}
+
+message UpdateTicketTypeResponse {
+  bool success = 1;
+  TicketType ticket_type = 2;
+  string message = 3;
+}
+
+message DeleteTicketTypeRequest {
+  string ticket_type_id = 1;
+}
+
+message DeleteTicketTypeResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Availability Messages
+message CheckAvailabilityRequest {
+  string event_id = 1;
+  string ticket_type_id = 2;
+  int32 quantity = 3;
+  repeated string seat_numbers = 4;
+}
+
+message CheckAvailabilityResponse {
+  bool success = 1;
+  bool available = 2;
+  int32 available_quantity = 3;
+  repeated string available_seats = 4;
+  string message = 5;
+}
+
+message GetAvailableTicketsRequest {
+  string event_id = 1;
+  string ticket_type_id = 2;
+  int32 limit = 3;
+}
+
+message GetAvailableTicketsResponse {
+  bool success = 1;
+  repeated Ticket tickets = 2;
+  int32 total_available = 3;
+  string message = 4;
+}
+
+message ReserveTicketsRequest {
+  string event_id = 1;
+  string ticket_type_id = 2;
+  int32 quantity = 3;
+  repeated string seat_numbers = 4;
+  string user_id = 5;
+  int32 timeout_seconds = 6;
+}
+
+message ReserveTicketsResponse {
+  bool success = 1;
+  repeated Ticket tickets = 2;
+  string reservation_id = 3;
+  google.protobuf.Timestamp expires_at = 4;
+  string message = 5;
+}
+
+message ReleaseTicketsRequest {
+  string reservation_id = 1;
+  repeated string ticket_ids = 2;
+}
+
+message ReleaseTicketsResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Health Check Messages
+message HealthRequest {
+  string service = 1;
+}
+
+message HealthResponse {
+  string status = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}
+
+// Data Models
+message Ticket {
+  string id = 1;
+  string event_id = 2;
+  string ticket_type_id = 3;
+  string user_id = 4;
+  string booking_id = 5;
+  string ticket_number = 6;
+  string seat_number = 7;
+  double price = 8;
+  string currency = 9;
+  string status = 10;
+  string qr_code = 11;
+  google.protobuf.Timestamp valid_from = 12;
+  google.protobuf.Timestamp valid_until = 13;
+  google.protobuf.Timestamp used_at = 14;
+  map<string, string> metadata = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+}
+
+message TicketType {
+  string id = 1;
+  string event_id = 2;
+  string name = 3;
+  string description = 4;
+  double price = 5;
+  string currency = 6;
+  int32 quantity = 7;
+  int32 available_quantity = 8;
+  int32 max_per_purchase = 9;
+  int32 min_per_purchase = 10;
+  google.protobuf.Timestamp valid_from = 11;
+  google.protobuf.Timestamp valid_until = 12;
+  string status = 13;
+  map<string, string> metadata = 14;
+  google.protobuf.Timestamp created_at = 15;
+  google.protobuf.Timestamp updated_at = 16;
+} 

@@ -1,0 +1,97 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# 🤖 AI Agent Project Overview
+
+This file is intended for AI agents and automated tools to understand the structure, conventions, and integration points of the booking-system project.
+
+## 🏗️ Project Structure
+
+- **Microservices Architecture**: Each service is in its own folder at the root level.
+- **Service Naming**: All services use `-service` or `-worker` suffixes for clarity.
+- **Shared Libraries**: Common code and protobuf definitions are in `shared-lib/`.
+- **Deployment**: Orchestration and deployment files are in `deploy/`.
+
+## 📦 Core Services
+
+- **gateway/**: API Gateway, entrypoint for all client requests
+- **auth-service/**: Authentication and authorization
+- **booking-service/**: Booking logic and ticket reservation
+- **booking-worker/**: Queue-based booking worker (Go), handles high concurrency
+- **ticket-service/**: Ticket inventory management
+- **payment-service/**: Payment processing
+- **realtime-service/**: WebSocket real-time updates
+- **notification-service/**: Notification delivery
+- **email-worker/**: Asynchronous email sending
+- **invoice-service/**: Invoice and PDF generation
+- **analytics-service/**: Data analytics and reporting
+- **event-management/**: Event and venue management
+- **user-profile/**: User profile and preferences
+- **pricing-service/**: Dynamic pricing and promotions
+- **support-service/**: Customer support and chat
+- **rate-limiter/**: API rate limiting
+
+## 🔗 Communication
+
+- **gRPC**: All inter-service communication uses gRPC with protobuf definitions in `shared-lib/protos/`.
+- **Kafka/Redis**: Used for distributed queues and event-driven flows (e.g., booking-worker, analytics).
+- **WebSocket**: Real-time updates via `realtime-service`.
+
+## 🧩 Integration Points
+
+- **Booking Flow**: gateway → booking-worker (Go) → booking-service/ticket-service → payment-service → notification/realtime
+- **Queue Handling**: booking-worker manages distributed queue, notifies clients via realtime-service
+- **Timeouts**: booking-worker enforces timeouts, releases tickets if payment not completed
+- **Rate Limiting**: All APIs are protected by rate-limiter service
+
+## 📝 Conventions
+
+- **Service Naming**: Use lowercase, hyphen-separated, and `-service`/`-worker` suffix
+- **gRPC Naming**: Service and method names use PascalCase in protobuf
+- **Environment Variables**: All configuration via env vars, documented in each service's README
+- **Monitoring**: All services expose Prometheus metrics
+- **Security**: JWT/mTLS for gRPC, API keys for external APIs
+
+## 💻 Coding Conventions
+
+### JavaScript/Node.js Services
+
+- **Use Functions, Not Classes**: Prefer functional programming approach with exported functions instead of classes
+- **File Naming**: Use camelCase.js instead of service.js pattern
+  - ✅ `userService.js` → `userService.js`
+  - ✅ `authHandler.js` → `authHandler.js`
+  - ✅ `databaseConnection.js` → `databaseConnection.js`
+  - ❌ `user.service.js` → `userService.js`
+  - ❌ `auth.handler.js` → `authHandler.js`
+- **Module Exports**: Export functions directly, not class instances
+- **Dependency Injection**: Pass dependencies as function parameters rather than class constructor injection
+
+## 🗂️ File/Folder Conventions
+
+- `README.md` in each service: Human-readable documentation
+- `AI_README.md` (this file): Machine/AI agent documentation
+- `shared-lib/protos/`: All protobuf definitions
+- `deploy/`: Docker Compose, Kubernetes, and CI/CD files
+
+## 🧠 AI Agent Guidance
+
+- **Service Discovery**: List all folders at root, ignore `shared-lib`, `deploy`, and markdown files for service enumeration
+- **API Discovery**: Parse gRPC proto files in `shared-lib/protos/` for service/method definitions
+- **Queue/Stream Discovery**: Look for Kafka/Redis usage in service configs and code
+- **Integration**: Use gRPC endpoints and service names for cross-service calls
+- **Security**: Always authenticate via JWT or mTLS for gRPC
+
+## 🚦 Example Booking Flow (AI Perspective)
+
+1. **Client** sends booking request to `gateway`
+2. `gateway` forwards to `booking-worker` (Go)
+3. `booking-worker` enqueues request, notifies client via `realtime-service`
+4. When turn comes, `booking-worker` reserves ticket via `booking-service`/`ticket-service`
+5. Client proceeds to payment via `payment-service`
+6. On success, notifications sent via `notification-service`/`email-worker`
+
+---
+
+This file is maintained for AI agents and automated tools. For human documentation, see the main `README.md` and service-specific READMEs.

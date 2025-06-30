@@ -1,0 +1,172 @@
+syntax = "proto3";
+
+package event;
+
+import "google/protobuf/timestamp.proto";
+
+// Event Service
+service EventService {
+  // Event Management
+  rpc CreateEvent(CreateEventRequest) returns (EventResponse);
+  rpc GetEvent(GetEventRequest) returns (EventResponse);
+  rpc UpdateEvent(UpdateEventRequest) returns (EventResponse);
+  rpc DeleteEvent(DeleteEventRequest) returns (DeleteEventResponse);
+  rpc ListEvents(ListEventsRequest) returns (ListEventsResponse);
+  rpc SearchEvents(SearchEventsRequest) returns (SearchEventsResponse);
+  
+  // Event Categories
+  rpc GetEventCategories(GetEventCategoriesRequest) returns (GetEventCategoriesResponse);
+  rpc GetFeaturedEvents(GetFeaturedEventsRequest) returns (GetFeaturedEventsResponse);
+  
+  // Health Check
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+// Event Management Messages
+message CreateEventRequest {
+  string title = 1;
+  string description = 2;
+  google.protobuf.Timestamp start_date = 3;
+  google.protobuf.Timestamp end_date = 4;
+  string location = 5;
+  string venue_id = 6;
+  double price = 7;
+  string currency = 8;
+  int32 capacity = 9;
+  string category = 10;
+  string organizer_id = 11;
+  map<string, string> metadata = 12;
+}
+
+message EventResponse {
+  bool success = 1;
+  Event event = 2;
+  string message = 3;
+}
+
+message GetEventRequest {
+  string event_id = 1;
+}
+
+message UpdateEventRequest {
+  string event_id = 1;
+  string title = 2;
+  string description = 3;
+  google.protobuf.Timestamp start_date = 4;
+  google.protobuf.Timestamp end_date = 5;
+  string location = 6;
+  string venue_id = 7;
+  double price = 8;
+  string currency = 9;
+  int32 capacity = 10;
+  string category = 11;
+  map<string, string> metadata = 12;
+}
+
+message DeleteEventRequest {
+  string event_id = 1;
+}
+
+message DeleteEventResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ListEventsRequest {
+  int32 page = 1;
+  int32 limit = 2;
+  string category = 3;
+  string status = 4;
+  google.protobuf.Timestamp from_date = 5;
+  google.protobuf.Timestamp to_date = 6;
+}
+
+message ListEventsResponse {
+  bool success = 1;
+  repeated Event events = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  string message = 6;
+}
+
+message SearchEventsRequest {
+  string query = 1;
+  int32 page = 2;
+  int32 limit = 3;
+  string category = 4;
+  string location = 5;
+  google.protobuf.Timestamp from_date = 6;
+  google.protobuf.Timestamp to_date = 7;
+}
+
+message SearchEventsResponse {
+  bool success = 1;
+  repeated Event events = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  string message = 6;
+}
+
+message GetEventCategoriesRequest {
+  bool include_count = 1;
+}
+
+message GetEventCategoriesResponse {
+  bool success = 1;
+  repeated EventCategory categories = 2;
+  string message = 3;
+}
+
+message GetFeaturedEventsRequest {
+  int32 limit = 1;
+  string category = 2;
+}
+
+message GetFeaturedEventsResponse {
+  bool success = 1;
+  repeated Event events = 2;
+  string message = 3;
+}
+
+// Health Check Messages
+message HealthRequest {
+  string service = 1;
+}
+
+message HealthResponse {
+  string status = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}
+
+// Data Models
+message Event {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  google.protobuf.Timestamp start_date = 4;
+  google.protobuf.Timestamp end_date = 5;
+  string location = 6;
+  string venue_id = 7;
+  double price = 8;
+  string currency = 9;
+  int32 capacity = 10;
+  int32 available_tickets = 11;
+  string category = 12;
+  string organizer_id = 13;
+  string status = 14;
+  map<string, string> metadata = 15;
+  google.protobuf.Timestamp created_at = 16;
+  google.protobuf.Timestamp updated_at = 17;
+}
+
+message EventCategory {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string icon = 4;
+  int32 event_count = 5;
+  google.protobuf.Timestamp created_at = 6;
+} 

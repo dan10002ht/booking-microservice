@@ -1,0 +1,218 @@
+syntax = "proto3";
+
+package device;
+
+// Device Service
+service DeviceService {
+  // Device Management
+  rpc RegisterDevice(RegisterDeviceRequest) returns (RegisterDeviceResponse);
+  rpc GetDeviceList(GetDeviceListRequest) returns (GetDeviceListResponse);
+  rpc UpdateDeviceTrust(UpdateDeviceTrustRequest) returns (UpdateDeviceTrustResponse);
+  rpc RevokeDevice(RevokeDeviceRequest) returns (RevokeDeviceResponse);
+  
+  // Session Management
+  rpc GetUserSessions(GetUserSessionsRequest) returns (GetUserSessionsResponse);
+  rpc CreateSession(CreateSessionRequest) returns (CreateSessionResponse);
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse);
+  rpc ValidateDevice(ValidateDeviceRequest) returns (ValidateDeviceResponse);
+  
+  // Analytics
+  rpc GetDeviceAnalytics(GetDeviceAnalyticsRequest) returns (GetDeviceAnalyticsResponse);
+}
+
+// Health Service
+service HealthService {
+  rpc Check(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Device Management Messages
+message RegisterDeviceRequest {
+  string user_id = 1;
+  string device_hash = 2;
+  string device_name = 3;
+  string device_type = 4;
+  string browser = 5;
+  string browser_version = 6;
+  string os = 7;
+  string os_version = 8;
+  string screen_resolution = 9;
+  string timezone = 10;
+  string language = 11;
+  string ip_address = 12;
+  string user_agent = 13;
+  bytes location_data = 14;
+  bytes fingerprint_data = 15;
+}
+
+message RegisterDeviceResponse {
+  bool success = 1;
+  string device_id = 2;
+  int32 trust_score = 3;
+  string trust_level = 4;
+  string message = 5;
+}
+
+message GetDeviceListRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message GetDeviceListResponse {
+  bool success = 1;
+  repeated Device devices = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  string message = 6;
+}
+
+message UpdateDeviceTrustRequest {
+  string device_id = 1;
+  int32 trust_score = 2;
+  string trust_level = 3;
+  string reason = 4;
+}
+
+message UpdateDeviceTrustResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message RevokeDeviceRequest {
+  string device_id = 1;
+  string reason = 2;
+}
+
+message RevokeDeviceResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Session Management Messages
+message GetUserSessionsRequest {
+  string user_id = 1;
+  bool active_only = 2;
+}
+
+message GetUserSessionsResponse {
+  bool success = 1;
+  repeated DeviceSession sessions = 2;
+  string message = 3;
+}
+
+message CreateSessionRequest {
+  string user_id = 1;
+  string device_id = 2;
+  string ip_address = 3;
+  string user_agent = 4;
+  bytes location_data = 5;
+}
+
+message CreateSessionResponse {
+  bool success = 1;
+  string session_id = 2;
+  string refresh_token = 3;
+  string expires_at = 4;
+  string message = 5;
+}
+
+message RevokeSessionRequest {
+  string session_id = 1;
+  string reason = 2;
+}
+
+message RevokeSessionResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message ValidateDeviceRequest {
+  string device_id = 1;
+  string user_id = 2;
+  string ip_address = 3;
+  string user_agent = 4;
+}
+
+message ValidateDeviceResponse {
+  bool success = 1;
+  bool is_valid = 2;
+  int32 trust_score = 3;
+  string trust_level = 4;
+  string message = 5;
+}
+
+// Analytics Messages
+message GetDeviceAnalyticsRequest {
+  string user_id = 1;
+  string device_id = 2;
+  string start_date = 3;
+  string end_date = 4;
+}
+
+message GetDeviceAnalyticsResponse {
+  bool success = 1;
+  DeviceAnalytics analytics = 2;
+  string message = 3;
+}
+
+// Health Check Messages
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  string status = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}
+
+// Data Models
+message Device {
+  string id = 1;
+  string user_id = 2;
+  string device_hash = 3;
+  string device_name = 4;
+  string device_type = 5;
+  string browser = 6;
+  string browser_version = 7;
+  string os = 8;
+  string os_version = 9;
+  string screen_resolution = 10;
+  string timezone = 11;
+  string language = 12;
+  string ip_address = 13;
+  bytes location_data = 14;
+  bytes fingerprint_data = 15;
+  int32 trust_score = 16;
+  string trust_level = 17;
+  bool is_active = 18;
+  string last_used_at = 19;
+  string created_at = 20;
+  string updated_at = 21;
+}
+
+message DeviceSession {
+  string id = 1;
+  string user_id = 2;
+  string device_id = 3;
+  string session_id = 4;
+  string ip_address = 5;
+  string user_agent = 6;
+  bytes location_data = 7;
+  bool is_active = 8;
+  string expires_at = 9;
+  string created_at = 10;
+  string updated_at = 11;
+}
+
+message DeviceAnalytics {
+  string device_id = 1;
+  int32 total_sessions = 2;
+  int32 active_sessions = 3;
+  string last_login = 4;
+  string most_common_location = 5;
+  repeated string login_history = 6;
+  map<string, int32> activity_by_hour = 7;
+  map<string, int32> activity_by_day = 8;
+} 

@@ -1,0 +1,203 @@
+syntax = "proto3";
+
+package payment;
+
+import "google/protobuf/timestamp.proto";
+
+// Payment Service
+service PaymentService {
+  // Payment Processing
+  rpc ProcessPayment(ProcessPaymentRequest) returns (PaymentResponse);
+  rpc GetPayment(GetPaymentRequest) returns (PaymentResponse);
+  rpc ListPayments(ListPaymentsRequest) returns (ListPaymentsResponse);
+  rpc RefundPayment(RefundPaymentRequest) returns (RefundPaymentResponse);
+  
+  // Payment Methods
+  rpc AddPaymentMethod(AddPaymentMethodRequest) returns (PaymentMethodResponse);
+  rpc GetPaymentMethods(GetPaymentMethodsRequest) returns (GetPaymentMethodsResponse);
+  rpc UpdatePaymentMethod(UpdatePaymentMethodRequest) returns (PaymentMethodResponse);
+  rpc DeletePaymentMethod(DeletePaymentMethodRequest) returns (DeletePaymentMethodResponse);
+  
+  // Payment Status
+  rpc GetPaymentStatus(GetPaymentStatusRequest) returns (GetPaymentStatusResponse);
+  rpc UpdatePaymentStatus(UpdatePaymentStatusRequest) returns (UpdatePaymentStatusResponse);
+  
+  // Health Check
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+// Payment Processing Messages
+message ProcessPaymentRequest {
+  string booking_id = 1;
+  string user_id = 2;
+  double amount = 3;
+  string currency = 4;
+  string payment_method_id = 5;
+  string payment_method_type = 6;
+  map<string, string> payment_data = 7;
+  map<string, string> metadata = 8;
+}
+
+message PaymentResponse {
+  bool success = 1;
+  Payment payment = 2;
+  string message = 3;
+}
+
+message GetPaymentRequest {
+  string payment_id = 1;
+}
+
+message ListPaymentsRequest {
+  string user_id = 1;
+  string booking_id = 2;
+  string status = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  google.protobuf.Timestamp from_date = 6;
+  google.protobuf.Timestamp to_date = 7;
+}
+
+message ListPaymentsResponse {
+  bool success = 1;
+  repeated Payment payments = 2;
+  int32 total = 3;
+  int32 page = 4;
+  int32 limit = 5;
+  string message = 6;
+}
+
+message RefundPaymentRequest {
+  string payment_id = 1;
+  double amount = 2;
+  string reason = 3;
+  map<string, string> metadata = 4;
+}
+
+message RefundPaymentResponse {
+  bool success = 1;
+  Refund refund = 2;
+  string message = 3;
+}
+
+// Payment Methods Messages
+message AddPaymentMethodRequest {
+  string user_id = 1;
+  string type = 2;
+  string name = 3;
+  map<string, string> payment_data = 4;
+  bool is_default = 5;
+}
+
+message PaymentMethodResponse {
+  bool success = 1;
+  PaymentMethod payment_method = 2;
+  string message = 3;
+}
+
+message GetPaymentMethodsRequest {
+  string user_id = 1;
+}
+
+message GetPaymentMethodsResponse {
+  bool success = 1;
+  repeated PaymentMethod payment_methods = 2;
+  string message = 3;
+}
+
+message UpdatePaymentMethodRequest {
+  string payment_method_id = 1;
+  string name = 2;
+  bool is_default = 3;
+  map<string, string> payment_data = 4;
+}
+
+message DeletePaymentMethodRequest {
+  string payment_method_id = 1;
+}
+
+message DeletePaymentMethodResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Payment Status Messages
+message GetPaymentStatusRequest {
+  string payment_id = 1;
+}
+
+message GetPaymentStatusResponse {
+  bool success = 1;
+  string status = 2;
+  string message = 3;
+}
+
+message UpdatePaymentStatusRequest {
+  string payment_id = 1;
+  string status = 2;
+  string transaction_id = 3;
+  map<string, string> metadata = 4;
+}
+
+message UpdatePaymentStatusResponse {
+  bool success = 1;
+  Payment payment = 2;
+  string message = 3;
+}
+
+// Health Check Messages
+message HealthRequest {
+  string service = 1;
+}
+
+message HealthResponse {
+  string status = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}
+
+// Data Models
+message Payment {
+  string id = 1;
+  string booking_id = 2;
+  string user_id = 3;
+  double amount = 4;
+  string currency = 5;
+  string payment_method_id = 6;
+  string payment_method_type = 7;
+  string status = 8;
+  string transaction_id = 9;
+  string gateway = 10;
+  map<string, string> metadata = 11;
+  google.protobuf.Timestamp created_at = 12;
+  google.protobuf.Timestamp updated_at = 13;
+  google.protobuf.Timestamp processed_at = 14;
+}
+
+message PaymentMethod {
+  string id = 1;
+  string user_id = 2;
+  string type = 3;
+  string name = 4;
+  string last_four = 5;
+  string brand = 6;
+  int32 expiry_month = 7;
+  int32 expiry_year = 8;
+  bool is_default = 9;
+  map<string, string> payment_data = 10;
+  google.protobuf.Timestamp created_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+}
+
+message Refund {
+  string id = 1;
+  string payment_id = 2;
+  double amount = 3;
+  string currency = 4;
+  string reason = 5;
+  string status = 6;
+  string transaction_id = 7;
+  map<string, string> metadata = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp processed_at = 10;
+} 

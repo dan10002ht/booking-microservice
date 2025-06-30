@@ -1,0 +1,289 @@
+syntax = "proto3";
+
+package auth;
+
+service AuthService {
+  // User authentication
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc RegisterWithEmail(RegisterWithEmailRequest) returns (RegisterResponse);
+  rpc RegisterWithOAuth(RegisterWithOAuthRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc OAuthLogin(OAuthLoginRequest) returns (LoginResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  
+  // Token verification
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc GetUserPermissions(GetUserPermissionsRequest) returns (GetUserPermissionsResponse);
+  
+  // User management
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  
+  // Password management
+  rpc ForgotPassword(ForgotPasswordRequest) returns (ForgotPasswordResponse);
+  rpc ResetPassword(ResetPasswordRequest) returns (ResetPasswordResponse);
+  
+  // Email verification
+  rpc SendVerificationEmail(SendVerificationEmailRequest) returns (SendVerificationEmailResponse);
+  rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
+  
+  // Health check
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+// Request/Response messages for authentication
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string phone = 5;
+  string role = 6; // "individual", "organization", "admin"
+  OrganizationData organization = 7;
+}
+
+message RegisterWithEmailRequest {
+  string email = 1;
+  string password = 2;
+  string username = 3;
+  string first_name = 4;
+  string last_name = 5;
+  string phone = 6;
+  string role = 7; // "user", "organization", "admin"
+  OrganizationData organization = 8;
+  string ip_address = 9;
+  string user_agent = 10;
+}
+
+message RegisterWithOAuthRequest {
+  string provider = 1; // "google", "facebook", "github"
+  string token = 2;
+  string access_token = 3;
+  string refresh_token = 4;
+  int64 expires_at = 5;
+  string ip_address = 6;
+  string user_agent = 7;
+}
+
+message OrganizationData {
+  string name = 1;
+  string description = 2;
+  string website_url = 3;
+  string logo_url = 4;
+  string tax_id = 5;
+  string business_license = 6;
+  string contact_person = 7;
+  string contact_phone = 8;
+  string contact_email = 9;
+  string address = 10;
+  string city = 11;
+  string state = 12;
+  string country = 13;
+  string postal_code = 14;
+}
+
+message RegisterResponse {
+  bool success = 1;
+  string message = 2;
+  User user = 3;
+  string access_token = 4;
+  string refresh_token = 5;
+  string auth_type = 6; // "email" or "oauth"
+  bool is_new_user = 7; // true for new OAuth users
+  OrganizationData organization = 8;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+  string ip_address = 3;
+  string user_agent = 4;
+}
+
+message LoginResponse {
+  bool success = 1;
+  string message = 2;
+  User user = 3;
+  string access_token = 4;
+  string refresh_token = 5;
+}
+
+message OAuthLoginRequest {
+  string provider = 1; // "google", "facebook", etc.
+  string access_token = 2;
+  string provider_user_id = 3;
+  string email = 4;
+  string first_name = 5;
+  string last_name = 6;
+  string picture = 7;
+  string refresh_token = 8;
+  int64 expires_at = 9;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  bool success = 1;
+  string message = 2;
+  string access_token = 3;
+  string refresh_token = 4;
+}
+
+message LogoutRequest {
+  string refresh_token = 1;
+}
+
+message LogoutResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Token verification
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+message ValidateTokenResponse {
+  bool valid = 1;
+  User user = 2;
+}
+
+message GetUserPermissionsRequest {
+  string user_id = 1;
+}
+
+message GetUserPermissionsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated PermissionData permissions = 3;
+}
+
+message PermissionData {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  string resource = 4;
+  string action = 5;
+}
+
+// User management
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message GetUserResponse {
+  bool success = 1;
+  string message = 2;
+  User user = 3;
+}
+
+message UpdateUserRequest {
+  string user_id = 1;
+  string first_name = 2;
+  string last_name = 3;
+  string phone = 4;
+  string address = 5;
+  string city = 6;
+  string state = 7;
+  string country = 8;
+  string postal_code = 9;
+  string profile_picture_url = 10;
+}
+
+message UpdateUserResponse {
+  bool success = 1;
+  string message = 2;
+  User user = 3;
+}
+
+message DeleteUserRequest {
+  string user_id = 1;
+}
+
+message DeleteUserResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Password management
+message ForgotPasswordRequest {
+  string email = 1;
+}
+
+message ForgotPasswordResponse {
+  bool success = 1;
+  string message = 2;
+  string reset_token = 3;
+}
+
+message ResetPasswordRequest {
+  string token = 1;
+  string password = 2;
+}
+
+message ResetPasswordResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Email verification
+message SendVerificationEmailRequest {
+  string email = 1;
+}
+
+message SendVerificationEmailResponse {
+  bool success = 1;
+  string message = 2;
+  string verification_token = 3;
+}
+
+message VerifyEmailRequest {
+  string token = 1;
+}
+
+message VerifyEmailResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+// Health check
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+  string timestamp = 2;
+}
+
+// Common data structures
+message User {
+  string id = 1;
+  string email = 2;
+  string first_name = 3;
+  string last_name = 4;
+  string phone = 5;
+  string address = 6;
+  string city = 7;
+  string state = 8;
+  string country = 9;
+  string postal_code = 10;
+  string profile_picture_url = 11;
+  bool is_active = 12;
+  bool is_verified = 13;
+  string email_verified_at = 14;
+  string phone_verified_at = 15;
+  string last_login_at = 16;
+  string auth_type = 17;
+  string role = 18;
+  repeated string permissions = 19;
+}
+
+message RoleData {
+  string id = 1;
+  string name = 2;
+  string description = 3;
+  repeated PermissionData permissions = 4;
+} 
