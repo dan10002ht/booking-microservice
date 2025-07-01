@@ -104,13 +104,15 @@ export async function registerWithEmail(registerData) {
       ip_address: ip_address,
     };
 
+    // Song song hóa các thao tác cache/token/session
     await Promise.all([
       cacheService.cacheUserProfile(newUser.public_id, userProfile),
       cacheService.cacheUserRoles(newUser.public_id, userWithRoles.roles || []),
-
       refreshTokenRepository.createRefreshTokenForSession(refreshTokenData),
       userSessionRepository.createUserSession(newUser.id, sessionData),
     ]);
+
+    // Nếu có gửi email xác thực hoặc audit log thì nên fire-and-forget ở đây (chưa có)
 
     return {
       user: userProfile,
@@ -180,21 +182,24 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
       const sessionId = uuidv4();
 
       // Save refresh token to refresh_tokens table
-      await refreshTokenRepository.createRefreshTokenForSession({
-        user_id: existingUser.id,
-        session_id: sessionId,
-        token_hash: tokens.refreshToken, // In production, hash this
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        device_info: sanitizedSessionData.user_agent,
-        ip_address: sanitizedSessionData.ip_address,
-      });
-
-      await userSessionRepository.createUserSession(existingUser.id, {
-        session_id: sessionId,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        ip_address: sanitizedSessionData.ip_address,
-        user_agent: sanitizedSessionData.user_agent,
-      });
+      await Promise.all([
+        cacheService.cacheUserProfile(existingUser.public_id, userProfile),
+        cacheService.cacheUserRoles(existingUser.public_id, userWithRoles.roles || []),
+        refreshTokenRepository.createRefreshTokenForSession({
+          user_id: existingUser.id,
+          session_id: sessionId,
+          token_hash: tokens.refreshToken, // In production, hash this
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          device_info: sanitizedSessionData.user_agent,
+          ip_address: sanitizedSessionData.ip_address,
+        }),
+        userSessionRepository.createUserSession(existingUser.id, {
+          session_id: sessionId,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          ip_address: sanitizedSessionData.ip_address,
+          user_agent: sanitizedSessionData.user_agent,
+        }),
+      ]);
 
       return {
         user: sanitizeUserForResponse({ ...existingUser, role: primaryRole.name }),
@@ -244,21 +249,24 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
       const sessionId = uuidv4();
 
       // Save refresh token to refresh_tokens table
-      await refreshTokenRepository.createRefreshTokenForSession({
-        user_id: existingUserByEmail.id,
-        session_id: sessionId,
-        token_hash: tokens.refreshToken, // In production, hash this
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        device_info: sanitizedSessionData.user_agent,
-        ip_address: sanitizedSessionData.ip_address,
-      });
-
-      await userSessionRepository.createUserSession(existingUserByEmail.id, {
-        session_id: sessionId,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        ip_address: sanitizedSessionData.ip_address,
-        user_agent: sanitizedSessionData.user_agent,
-      });
+      await Promise.all([
+        cacheService.cacheUserProfile(existingUserByEmail.public_id, userProfile),
+        cacheService.cacheUserRoles(existingUserByEmail.public_id, userWithRoles.roles || []),
+        refreshTokenRepository.createRefreshTokenForSession({
+          user_id: existingUserByEmail.id,
+          session_id: sessionId,
+          token_hash: tokens.refreshToken, // In production, hash this
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          device_info: sanitizedSessionData.user_agent,
+          ip_address: sanitizedSessionData.ip_address,
+        }),
+        userSessionRepository.createUserSession(existingUserByEmail.id, {
+          session_id: sessionId,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          ip_address: sanitizedSessionData.ip_address,
+          user_agent: sanitizedSessionData.user_agent,
+        }),
+      ]);
 
       return {
         user: sanitizeUserForResponse({ ...existingUserByEmail, role: primaryRole.name }),
@@ -310,21 +318,24 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
     const sessionId = uuidv4();
 
     // Save refresh token to refresh_tokens table
-    await refreshTokenRepository.createRefreshTokenForSession({
-      user_id: newUser.id,
-      session_id: sessionId,
-      token_hash: tokens.refreshToken, // In production, hash this
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      device_info: sanitizedSessionData.user_agent,
-      ip_address: sanitizedSessionData.ip_address,
-    });
-
-    await userSessionRepository.createUserSession(newUser.id, {
-      session_id: sessionId,
-      expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-      ip_address: sanitizedSessionData.ip_address,
-      user_agent: sanitizedSessionData.user_agent,
-    });
+    await Promise.all([
+      cacheService.cacheUserProfile(newUser.public_id, userProfile),
+      cacheService.cacheUserRoles(newUser.public_id, []),
+      refreshTokenRepository.createRefreshTokenForSession({
+        user_id: newUser.id,
+        session_id: sessionId,
+        token_hash: tokens.refreshToken, // In production, hash this
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        device_info: sanitizedSessionData.user_agent,
+        ip_address: sanitizedSessionData.ip_address,
+      }),
+      userSessionRepository.createUserSession(newUser.id, {
+        session_id: sessionId,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        ip_address: sanitizedSessionData.ip_address,
+        user_agent: sanitizedSessionData.user_agent,
+      }),
+    ]);
 
     return {
       user: sanitizeUserForResponse({ ...newUser, role: 'individual' }),
@@ -392,11 +403,10 @@ export async function login(email, password, sessionData = {}) {
       ip_address: sanitizedSessionData.ip_address,
     };
 
-    // Execute all parallel operations that don't depend on each other
+    // Song song hóa các thao tác cache/token/session
     await Promise.all([
       cacheService.cacheUserProfile(user.public_id, userProfile),
       cacheService.cacheUserRoles(user.public_id, userWithRoles.roles || []),
-
       refreshTokenRepository.createRefreshTokenForSession(refreshTokenData),
       userSessionRepository.createUserSession(user.id, sessionInfo),
     ]);
@@ -460,7 +470,7 @@ export async function logout(userId, sessionId = null, requestInfo = {}) {
     // Execute all operations in parallel for better performance
     await Promise.all(operations);
 
-    // Log audit trail (async - don't wait for it)
+    // Log audit trail (async - fire-and-forget)
     // TODO: Implement audit service
     // auditService.logAuditEvent(auditData).catch((error) => {
     //   console.error('Failed to log logout audit event:', error);
@@ -536,7 +546,7 @@ export async function refreshToken(refreshToken) {
       ip_address: tokenRecord.ip_address || 'unknown',
     };
 
-    // Execute token operations in parallel
+    // Song song hóa revoke token cũ và tạo token mới
     await Promise.all([
       refreshTokenRepository.revokeRefreshToken(tokenRecord.id),
       refreshTokenRepository.createRefreshTokenForSession(newRefreshTokenData),
@@ -584,8 +594,8 @@ export async function verifyToken(token) {
       user: sanitizeUserForResponse({ ...user, role: primaryRole.name }),
     };
 
-    // Cache the validation result
-    await cacheService.cacheTokenValidation(token, validationData);
+    // Cache the validation result (fire-and-forget)
+    cacheService.cacheTokenValidation(token, validationData).catch(() => {});
 
     return validationData;
   } catch (error) {
