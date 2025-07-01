@@ -1,0 +1,228 @@
+syntax = "proto3";
+
+package email;
+
+service EmailService {
+  // Email job management
+  rpc CreateEmailJob(CreateEmailJobRequest) returns (CreateEmailJobResponse);
+  rpc GetEmailJob(GetEmailJobRequest) returns (GetEmailJobResponse);
+  rpc UpdateEmailJobStatus(UpdateEmailJobStatusRequest) returns (UpdateEmailJobStatusResponse);
+  rpc ListEmailJobs(ListEmailJobsRequest) returns (ListEmailJobsResponse);
+  
+  // Email templates
+  rpc GetEmailTemplate(GetEmailTemplateRequest) returns (GetEmailTemplateResponse);
+  rpc ListEmailTemplates(ListEmailTemplatesRequest) returns (ListEmailTemplatesResponse);
+  rpc CreateEmailTemplate(CreateEmailTemplateRequest) returns (CreateEmailTemplateResponse);
+  rpc UpdateEmailTemplate(UpdateEmailTemplateRequest) returns (UpdateEmailTemplateResponse);
+  
+  // Email tracking
+  rpc GetEmailTracking(GetEmailTrackingRequest) returns (GetEmailTrackingResponse);
+  rpc UpdateEmailTracking(UpdateEmailTrackingRequest) returns (UpdateEmailTrackingResponse);
+  
+  // Health check
+  rpc Health(HealthRequest) returns (HealthResponse);
+}
+
+// Email Job Management
+message CreateEmailJobRequest {
+  string job_type = 1; // "verification", "password_reset", "welcome", "security", "invitation"
+  int32 priority = 2; // 1=high, 2=normal, 3=low
+  string user_id = 3; // UUID from auth-service
+  string email = 4;
+  string subject = 5;
+  string template_id = 6;
+  string template_data = 7; // JSON string
+  string provider = 8; // "sendgrid", "ses", "smtp"
+  int32 max_retries = 9;
+  string scheduled_at = 10; // ISO 8601 timestamp
+}
+
+message CreateEmailJobResponse {
+  bool success = 1;
+  string message = 2;
+  EmailJob job = 3;
+}
+
+message GetEmailJobRequest {
+  int64 job_id = 1;
+}
+
+message GetEmailJobResponse {
+  bool success = 1;
+  string message = 2;
+  EmailJob job = 3;
+}
+
+message UpdateEmailJobStatusRequest {
+  int64 job_id = 1;
+  string status = 2; // "pending", "processing", "sent", "failed", "cancelled"
+  string error_message = 3;
+  string sent_at = 4; // ISO 8601 timestamp
+}
+
+message UpdateEmailJobStatusResponse {
+  bool success = 1;
+  string message = 2;
+  EmailJob job = 3;
+}
+
+message ListEmailJobsRequest {
+  string status = 1;
+  string job_type = 2;
+  string user_id = 3;
+  string email = 4;
+  int32 page = 5;
+  int32 limit = 6;
+}
+
+message ListEmailJobsResponse {
+  bool success = 1;
+  string message = 2;
+  repeated EmailJob jobs = 3;
+  int32 total = 4;
+  int32 page = 5;
+  int32 limit = 6;
+}
+
+// Email Templates
+message GetEmailTemplateRequest {
+  string template_id = 1;
+  string name = 2;
+}
+
+message GetEmailTemplateResponse {
+  bool success = 1;
+  string message = 2;
+  EmailTemplate template = 3;
+}
+
+message ListEmailTemplatesRequest {
+  bool is_active = 1;
+  int32 page = 2;
+  int32 limit = 3;
+}
+
+message ListEmailTemplatesResponse {
+  bool success = 1;
+  string message = 2;
+  repeated EmailTemplate templates = 3;
+  int32 total = 4;
+}
+
+message CreateEmailTemplateRequest {
+  string name = 1;
+  string subject = 2;
+  string html_content = 3;
+  string text_content = 4;
+  string variables = 5; // JSON array string
+  bool is_active = 6;
+}
+
+message CreateEmailTemplateResponse {
+  bool success = 1;
+  string message = 2;
+  EmailTemplate template = 3;
+}
+
+message UpdateEmailTemplateRequest {
+  string template_id = 1;
+  string name = 2;
+  string subject = 3;
+  string html_content = 4;
+  string text_content = 5;
+  string variables = 6; // JSON array string
+  bool is_active = 7;
+}
+
+message UpdateEmailTemplateResponse {
+  bool success = 1;
+  string message = 2;
+  EmailTemplate template = 3;
+}
+
+// Email Tracking
+message GetEmailTrackingRequest {
+  int64 job_id = 1;
+  string message_id = 2;
+}
+
+message GetEmailTrackingResponse {
+  bool success = 1;
+  string message = 2;
+  EmailTracking tracking = 3;
+}
+
+message UpdateEmailTrackingRequest {
+  int64 job_id = 1;
+  string provider = 2;
+  string message_id = 3;
+  string status = 4; // "sent", "delivered", "bounced", "opened", "clicked"
+  string sent_at = 5; // ISO 8601 timestamp
+  string delivered_at = 6; // ISO 8601 timestamp
+  string opened_at = 7; // ISO 8601 timestamp
+  string clicked_at = 8; // ISO 8601 timestamp
+  string bounce_reason = 9;
+}
+
+message UpdateEmailTrackingResponse {
+  bool success = 1;
+  string message = 2;
+  EmailTracking tracking = 3;
+}
+
+// Health check
+message HealthRequest {}
+
+message HealthResponse {
+  string status = 1;
+  string timestamp = 2;
+  string version = 3;
+}
+
+// Data structures
+message EmailJob {
+  int64 id = 1;
+  string job_type = 2;
+  int32 priority = 3;
+  string status = 4;
+  string user_id = 5;
+  string email = 6;
+  string subject = 7;
+  string template_id = 8;
+  string template_data = 9;
+  string provider = 10;
+  int32 retry_count = 11;
+  int32 max_retries = 12;
+  string error_message = 13;
+  string sent_at = 14;
+  string scheduled_at = 15;
+  string created_at = 16;
+  string updated_at = 17;
+}
+
+message EmailTemplate {
+  int64 id = 1;
+  string name = 2;
+  string subject = 3;
+  string html_content = 4;
+  string text_content = 5;
+  string variables = 6;
+  bool is_active = 7;
+  string created_at = 8;
+  string updated_at = 9;
+}
+
+message EmailTracking {
+  int64 id = 1;
+  int64 job_id = 2;
+  string provider = 3;
+  string message_id = 4;
+  string status = 5;
+  string sent_at = 6;
+  string delivered_at = 7;
+  string opened_at = 8;
+  string clicked_at = 9;
+  string bounce_reason = 10;
+  string created_at = 11;
+  string updated_at = 12;
+} 

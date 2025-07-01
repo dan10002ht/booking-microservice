@@ -1,36 +1,47 @@
-FROM golang:1.23-alpine AS builder
-
-# Install protobuf compiler
-RUN apk add --no-cache protobuf
+# Build stage
+FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates tzdata
+
 # Copy go mod files
 COPY go.mod go.sum ./
-
-# Download dependencies
 RUN go mod download
-
-# Copy protobuf definitions
-COPY shared-lib/protos ./protos
-
-# Generate gRPC code
-RUN protoc --go_out=. --go-grpc_out=. ./protos/*.proto
 
 # Copy source code
 COPY . .
 
-# Build application
+# Build the application
 RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o email-worker .
 
 # Final stage
 FROM alpine:latest
 
-RUN apk --no-cache add ca-certificates
-
 WORKDIR /root/
 
-# Copy the binary from builder stage
+# Install runtime dependencies
+RUN apk --no-cache add ca-certificates tzdata
+
+# Copy binary from builder stage
 COPY --from=builder /app/email-worker .
 
+# Copy configuration files
+COPY --from=builder /app/env.example ./
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup
+
+# Change ownership
+RUN chown -R appuser:appgroup /root/
+
+# Switch to non-root user
+USER appuser
+
+# Expose port (if needed for health checks)
+EXPOSE 8080
+
+# Run the application
 CMD ["./email-worker"] 
