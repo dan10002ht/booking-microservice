@@ -18,6 +18,7 @@ import {
 import * as organizationManagementService from './organizationManagementService.js';
 import * as oauthService from './oauthService.js';
 import cacheService from './cacheService.js';
+// import * as auditService from './auditService.js'; // TODO: Implement audit service
 
 // Get repository instances from factory
 const userRepository = getUserRepository();
@@ -96,15 +97,18 @@ export async function registerWithEmail(registerData) {
     // Prepare refresh token data
     const refreshTokenData = {
       user_id: newUser.id,
+      session_id: sessionData.session_id, // Link với session
       token_hash: tokens.refreshToken,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      device_info: user_agent, // Device fingerprint
+      ip_address: ip_address,
     };
 
     await Promise.all([
       cacheService.cacheUserProfile(newUser.public_id, userProfile),
       cacheService.cacheUserRoles(newUser.public_id, userWithRoles.roles || []),
 
-      refreshTokenRepository.createRefreshToken(refreshTokenData),
+      refreshTokenRepository.createRefreshTokenForSession(refreshTokenData),
       userSessionRepository.createUserSession(newUser.id, sessionData),
     ]);
 
@@ -173,15 +177,20 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
         role: primaryRole.name,
       });
 
+      const sessionId = uuidv4();
+
       // Save refresh token to refresh_tokens table
-      await refreshTokenRepository.createRefreshToken({
+      await refreshTokenRepository.createRefreshTokenForSession({
         user_id: existingUser.id,
+        session_id: sessionId,
         token_hash: tokens.refreshToken, // In production, hash this
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        device_info: sanitizedSessionData.user_agent,
+        ip_address: sanitizedSessionData.ip_address,
       });
 
       await userSessionRepository.createUserSession(existingUser.id, {
-        session_id: uuidv4(),
+        session_id: sessionId,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         ip_address: sanitizedSessionData.ip_address,
         user_agent: sanitizedSessionData.user_agent,
@@ -232,15 +241,20 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
         role: primaryRole.name,
       });
 
+      const sessionId = uuidv4();
+
       // Save refresh token to refresh_tokens table
-      await refreshTokenRepository.createRefreshToken({
+      await refreshTokenRepository.createRefreshTokenForSession({
         user_id: existingUserByEmail.id,
+        session_id: sessionId,
         token_hash: tokens.refreshToken, // In production, hash this
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        device_info: sanitizedSessionData.user_agent,
+        ip_address: sanitizedSessionData.ip_address,
       });
 
       await userSessionRepository.createUserSession(existingUserByEmail.id, {
-        session_id: uuidv4(),
+        session_id: sessionId,
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         ip_address: sanitizedSessionData.ip_address,
         user_agent: sanitizedSessionData.user_agent,
@@ -293,15 +307,20 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
       role: 'individual', // Default role for OAuth users
     });
 
+    const sessionId = uuidv4();
+
     // Save refresh token to refresh_tokens table
-    await refreshTokenRepository.createRefreshToken({
+    await refreshTokenRepository.createRefreshTokenForSession({
       user_id: newUser.id,
+      session_id: sessionId,
       token_hash: tokens.refreshToken, // In production, hash this
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      device_info: sanitizedSessionData.user_agent,
+      ip_address: sanitizedSessionData.ip_address,
     });
 
     await userSessionRepository.createUserSession(newUser.id, {
-      session_id: uuidv4(),
+      session_id: sessionId,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       ip_address: sanitizedSessionData.ip_address,
       user_agent: sanitizedSessionData.user_agent,
@@ -356,8 +375,9 @@ export async function login(email, password, sessionData = {}) {
       role: primaryRole.name,
     });
 
+    const sessionId = uuidv4();
     const sessionInfo = {
-      session_id: uuidv4(),
+      session_id: sessionId,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
       ip_address: sanitizedSessionData.ip_address,
       user_agent: sanitizedSessionData.user_agent,
@@ -365,8 +385,11 @@ export async function login(email, password, sessionData = {}) {
 
     const refreshTokenData = {
       user_id: user.id,
+      session_id: sessionId,
       token_hash: tokens.refreshToken,
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      device_info: sanitizedSessionData.user_agent,
+      ip_address: sanitizedSessionData.ip_address,
     };
 
     // Execute all parallel operations that don't depend on each other
@@ -374,7 +397,7 @@ export async function login(email, password, sessionData = {}) {
       cacheService.cacheUserProfile(user.public_id, userProfile),
       cacheService.cacheUserRoles(user.public_id, userWithRoles.roles || []),
 
-      refreshTokenRepository.createRefreshToken(refreshTokenData),
+      refreshTokenRepository.createRefreshTokenForSession(refreshTokenData),
       userSessionRepository.createUserSession(user.id, sessionInfo),
     ]);
     console.log('userProfile', userProfile);
@@ -391,30 +414,63 @@ export async function login(email, password, sessionData = {}) {
 }
 
 /**
- * User logout
+ * User logout - Best Practices Implementation
+ * @param {string} userId - User ID
+ * @param {string} sessionId - Optional: specific session to logout (selective logout)
+ * @param {object} requestInfo - Optional: request information for audit
  */
-export async function logout(userId, sessionId = null) {
+export async function logout(userId, sessionId = null, requestInfo = {}) {
   try {
     const operations = [];
+    const auditData = {
+      user_id: userId,
+      action: 'logout',
+      resource_type: 'session',
+      ip_address: requestInfo.ip_address,
+      user_agent: requestInfo.user_agent,
+      event_data: {
+        logout_type: sessionId ? 'selective' : 'global',
+        session_id: sessionId,
+        timestamp: new Date().toISOString(),
+      },
+    };
 
     if (sessionId) {
-      // Delete specific session
-      operations.push(userSessionRepository.deleteUserSession(sessionId));
-    } else {
-      // Delete all user sessions and revoke all refresh tokens
+      // Selective logout - logout specific session only
       operations.push(
-        userSessionRepository.deleteAllUserSessions(userId),
+        userSessionRepository.deleteBySessionId(sessionId),
+        refreshTokenRepository.revokeBySessionId(sessionId) // Need to implement this
+      );
+
+      auditData.resource_id = sessionId;
+      auditData.event_data.logout_scope = 'single_session';
+    } else {
+      // Global logout - logout all sessions and revoke all refresh tokens
+      operations.push(
+        userSessionRepository.deleteAllByUserId(userId),
         refreshTokenRepository.revokeAllUserTokens(userId)
       );
+
+      auditData.event_data.logout_scope = 'all_sessions';
     }
 
     // Invalidate user cache
     operations.push(cacheService.invalidateUserCache(userId));
 
-    // Execute all operations in parallel
+    // Execute all operations in parallel for better performance
     await Promise.all(operations);
 
-    return { message: 'Logout successful' };
+    // Log audit trail (async - don't wait for it)
+    // TODO: Implement audit service
+    // auditService.logAuditEvent(auditData).catch((error) => {
+    //   console.error('Failed to log logout audit event:', error);
+    // });
+
+    return {
+      message: 'Logout successful',
+      logout_type: sessionId ? 'selective' : 'global',
+      timestamp: new Date().toISOString(),
+    };
   } catch (error) {
     throw new Error(`Logout failed: ${error.message}`);
   }
@@ -467,17 +523,23 @@ export async function refreshToken(refreshToken) {
     // Generate new tokens
     const tokens = await generateTokensForUser(user.id);
 
+    // Create new session ID for the refreshed token
+    const newSessionId = uuidv4();
+
     // Prepare new refresh token data
     const newRefreshTokenData = {
       user_id: user.id,
+      session_id: newSessionId,
       token_hash: tokens.refreshToken, // In production, hash this
       expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      device_info: tokenRecord.device_info || 'unknown',
+      ip_address: tokenRecord.ip_address || 'unknown',
     };
 
     // Execute token operations in parallel
     await Promise.all([
       refreshTokenRepository.revokeRefreshToken(tokenRecord.id),
-      refreshTokenRepository.createRefreshToken(newRefreshTokenData),
+      refreshTokenRepository.createRefreshTokenForSession(newRefreshTokenData),
     ]);
 
     return {

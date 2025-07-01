@@ -12,15 +12,24 @@ const config = {
       user: process.env.DB_MASTER_USER || 'booking_user',
       password: process.env.DB_MASTER_PASSWORD || 'booking_pass',
     },
+    // Master connection cho write operations
+    pool: {
+      min: 2,
+      max: 10,
+    },
+    // Slave connection cho read operations
+    readConnection: {
+      host: process.env.DB_SLAVE_HOST || 'localhost',
+      port: process.env.DB_SLAVE_PORT || 55433,
+      database: process.env.DB_SLAVE_NAME || 'booking_system_auth',
+      user: process.env.DB_SLAVE_USER || 'booking_user',
+      password: process.env.DB_SLAVE_PASSWORD || 'booking_pass',
+    },
     migrations: {
       directory: './migrations',
     },
     seeds: {
       directory: './seeds',
-    },
-    pool: {
-      min: 2,
-      max: 10,
     },
   },
   test: {

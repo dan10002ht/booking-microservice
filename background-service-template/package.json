@@ -1,0 +1,32 @@
+{
+  "name": "background-service-template",
+  "version": "1.0.0",
+  "description": "Background Service Template with Best Practices",
+  "main": "backgroundService.js",
+  "type": "module",
+  "scripts": {
+    "test": "node test.js",
+    "start": "node test.js",
+    "dev": "nodemon test.js"
+  },
+  "keywords": [
+    "background-service",
+    "queue",
+    "job-processing",
+    "redis",
+    "microservices"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "ioredis": "^5.3.2",
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 

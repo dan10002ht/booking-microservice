@@ -118,13 +118,33 @@ export async function up(knex) {
     table.unique(['role_id', 'permission_id']);
   });
 
+  // Create user_sessions table - Internal only (performance critical)
+  await knex.schema.createTable('user_sessions', (table) => {
+    table.bigIncrements('id').primary(); // Auto increment for performance
+    table.bigInteger('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
+    table.string('session_id', 255).unique().notNullable();
+    table.string('ip_address', 45); // Changed from table.inet to table.string for IPv4/IPv6
+    table.text('user_agent');
+    table.timestamp('expires_at').notNullable();
+    table.boolean('is_active').defaultTo(true);
+    table.timestamp('created_at').defaultTo(knex.fn.now());
+    table.timestamp('updated_at').defaultTo(knex.fn.now());
+  });
+
   // Create refresh_tokens table - Internal only (performance critical)
   await knex.schema.createTable('refresh_tokens', (table) => {
     table.bigIncrements('id').primary(); // Auto increment for performance
     table.bigInteger('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
+    table
+      .string('session_id', 255)
+      .references('session_id')
+      .inTable('user_sessions')
+      .onDelete('CASCADE');
     table.string('token_hash', 1000).unique().notNullable();
     table.timestamp('expires_at').notNullable();
     table.boolean('is_revoked').defaultTo(false);
+    table.string('device_info', 500); // Device fingerprint for security
+    table.string('ip_address', 45); // IP address when token was created
     table.timestamp('created_at').defaultTo(knex.fn.now());
     table.timestamp('updated_at').defaultTo(knex.fn.now());
   });
@@ -147,19 +167,6 @@ export async function up(knex) {
     table.timestamp('expires_at').notNullable();
     table.boolean('is_used').defaultTo(false);
     table.timestamp('created_at').defaultTo(knex.fn.now());
-  });
-
-  // Create user_sessions table - Internal only (performance critical)
-  await knex.schema.createTable('user_sessions', (table) => {
-    table.bigIncrements('id').primary(); // Auto increment for performance
-    table.bigInteger('user_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
-    table.string('session_id', 255).unique().notNullable();
-    table.string('ip_address', 45); // Changed from table.inet to table.string for IPv4/IPv6
-    table.text('user_agent');
-    table.timestamp('expires_at').notNullable();
-    table.boolean('is_active').defaultTo(true);
-    table.timestamp('created_at').defaultTo(knex.fn.now());
-    table.timestamp('updated_at').defaultTo(knex.fn.now());
   });
 
   // Create audit_logs table - Internal only (performance critical)
@@ -269,6 +276,7 @@ export async function up(knex) {
   );
 
   await knex.schema.raw('CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id)');
+  await knex.schema.raw('CREATE INDEX idx_refresh_tokens_session_id ON refresh_tokens(session_id)');
   await knex.schema.raw('CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at)');
   await knex.schema.raw('CREATE INDEX idx_refresh_tokens_is_revoked ON refresh_tokens(is_revoked)');
 

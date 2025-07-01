@@ -16,7 +16,7 @@ export const handleUserLogin = async (userData, loginData, deviceInfo, requestIn
     const riskCheck = await securityService.getUserRiskScore(userData.id);
     if (riskCheck.success && riskCheck.risk_level === 'high') {
       logger.warn(`High risk user attempting login: ${userData.id}`);
-      
+
       // Submit security event for high risk login attempt
       await securityService.submitEvent({
         user_id: userData.id,
@@ -27,10 +27,10 @@ export const handleUserLogin = async (userData, loginData, deviceInfo, requestIn
         event_data: {
           risk_score: riskCheck.risk_score,
           risk_level: riskCheck.risk_level,
-          risk_factors: riskCheck.risk_factors
+          risk_factors: riskCheck.risk_factors,
         },
         ip_address: requestInfo.ip_address,
-        user_agent: requestInfo.user_agent
+        user_agent: requestInfo.user_agent,
       });
     }
 
@@ -50,7 +50,7 @@ export const handleUserLogin = async (userData, loginData, deviceInfo, requestIn
       ip_address: requestInfo.ip_address,
       user_agent: requestInfo.user_agent,
       location_data: deviceInfo.location_data,
-      fingerprint_data: deviceInfo.fingerprint_data
+      fingerprint_data: deviceInfo.fingerprint_data,
     });
 
     if (!deviceRegistration.success) {
@@ -64,7 +64,7 @@ export const handleUserLogin = async (userData, loginData, deviceInfo, requestIn
       device_id: deviceRegistration.device_id,
       ip_address: requestInfo.ip_address,
       user_agent: requestInfo.user_agent,
-      location_data: deviceInfo.location_data
+      location_data: deviceInfo.location_data,
     });
 
     if (!sessionCreation.success) {
@@ -84,11 +84,11 @@ export const handleUserLogin = async (userData, loginData, deviceInfo, requestIn
         device_id: deviceRegistration.device_id,
         device_trust_score: deviceRegistration.trust_score,
         device_trust_level: deviceRegistration.trust_level,
-        session_id: sessionCreation.session_id
+        session_id: sessionCreation.session_id,
       },
       ip_address: requestInfo.ip_address,
       user_agent: requestInfo.user_agent,
-      location_data: deviceInfo.location_data
+      location_data: deviceInfo.location_data,
     });
 
     // Step 5: Detect threats
@@ -98,7 +98,7 @@ export const handleUserLogin = async (userData, loginData, deviceInfo, requestIn
       {
         login_method: loginData.method,
         device_id: deviceRegistration.device_id,
-        device_trust_score: deviceRegistration.trust_score
+        device_trust_score: deviceRegistration.trust_score,
       },
       requestInfo.ip_address,
       requestInfo.user_agent
@@ -106,7 +106,7 @@ export const handleUserLogin = async (userData, loginData, deviceInfo, requestIn
 
     if (threatDetection.success && threatDetection.threat_detected) {
       logger.warn(`Threat detected during login for user: ${userData.id}`);
-      
+
       // Create security alert
       await securityService.createAlert(
         userData.id,
@@ -136,24 +136,23 @@ export const handleUserLogin = async (userData, loginData, deviceInfo, requestIn
       device: {
         device_id: deviceRegistration.device_id,
         trust_score: deviceRegistration.trust_score,
-        trust_level: deviceRegistration.trust_level
+        trust_level: deviceRegistration.trust_level,
       },
       session: {
         session_id: sessionCreation.session_id,
         refresh_token: sessionCreation.refresh_token,
-        expires_at: sessionCreation.expires_at
+        expires_at: sessionCreation.expires_at,
       },
       security: {
         risk_score: riskCheck.risk_score,
         risk_level: riskCheck.risk_level,
         threat_detected: threatDetection.threat_detected,
-        threat_level: threatDetection.threat_level
-      }
+        threat_level: threatDetection.threat_level,
+      },
     };
-
   } catch (error) {
     logger.error(`Login flow failed for user: ${userData.id}`, error);
-    
+
     // Submit failure event
     await securityService.submitEvent({
       user_id: userData.id,
@@ -163,10 +162,10 @@ export const handleUserLogin = async (userData, loginData, deviceInfo, requestIn
       severity: 'medium',
       event_data: {
         error: error.message,
-        login_method: loginData.method
+        login_method: loginData.method,
       },
       ip_address: requestInfo.ip_address,
-      user_agent: requestInfo.user_agent
+      user_agent: requestInfo.user_agent,
     });
 
     throw error;
@@ -194,7 +193,7 @@ export const handleDeviceRegistration = async (userData, deviceInfo, requestInfo
       ip_address: requestInfo.ip_address,
       user_agent: requestInfo.user_agent,
       location_data: deviceInfo.location_data,
-      fingerprint_data: deviceInfo.fingerprint_data
+      fingerprint_data: deviceInfo.fingerprint_data,
     });
 
     if (!deviceRegistration.success) {
@@ -213,11 +212,11 @@ export const handleDeviceRegistration = async (userData, deviceInfo, requestInfo
         device_name: deviceInfo.device_name,
         device_type: deviceInfo.device_type,
         browser: deviceInfo.browser,
-        os: deviceInfo.os
+        os: deviceInfo.os,
       },
       ip_address: requestInfo.ip_address,
       user_agent: requestInfo.user_agent,
-      location_data: deviceInfo.location_data
+      location_data: deviceInfo.location_data,
     });
 
     // Step 3: Get device analytics for risk assessment
@@ -261,10 +260,9 @@ export const handleDeviceRegistration = async (userData, deviceInfo, requestInfo
       device: {
         device_id: deviceRegistration.device_id,
         trust_score: deviceRegistration.trust_score,
-        trust_level: deviceRegistration.trust_level
-      }
+        trust_level: deviceRegistration.trust_level,
+      },
     };
-
   } catch (error) {
     logger.error(`Device registration failed for user: ${userData.id}`, error);
     throw error;
@@ -286,7 +284,7 @@ export const handleSecurityMonitoring = async (userData, eventData, requestInfo)
       event_data: eventData.event_data,
       ip_address: requestInfo.ip_address,
       user_agent: requestInfo.user_agent,
-      location_data: eventData.location_data
+      location_data: eventData.location_data,
     });
 
     if (!eventSubmission.success) {
@@ -298,7 +296,7 @@ export const handleSecurityMonitoring = async (userData, eventData, requestInfo)
       user_id: userData.id,
       email: userData.email,
       status: userData.status,
-      created_at: userData.created_at
+      created_at: userData.created_at,
     };
 
     // Step 3: Get device analytics
@@ -340,7 +338,7 @@ export const handleSecurityMonitoring = async (userData, eventData, requestInfo)
       if (currentRisk.success) {
         const riskIncrease = threatDetection.threat_level === 'high' ? 20 : 10;
         const newRiskScore = Math.min(100, currentRisk.risk_score + riskIncrease);
-        
+
         await securityService.updateUserRiskScore(
           userData.id,
           newRiskScore,
@@ -357,9 +355,8 @@ export const handleSecurityMonitoring = async (userData, eventData, requestInfo)
       threat_detected: threatDetection.threat_detected,
       threat_level: threatDetection.threat_level,
       user_context: userContext,
-      device_analytics: deviceAnalytics
+      device_analytics: deviceAnalytics,
     };
-
   } catch (error) {
     logger.error(`Security monitoring failed for user: ${userData.id}`, error);
     throw error;
@@ -394,10 +391,10 @@ export const handleDeviceValidation = async (userData, deviceId, requestInfo) =>
         device_id: deviceId,
         is_valid: deviceValidation.is_valid,
         trust_score: deviceValidation.trust_score,
-        trust_level: deviceValidation.trust_level
+        trust_level: deviceValidation.trust_level,
       },
       ip_address: requestInfo.ip_address,
-      user_agent: requestInfo.user_agent
+      user_agent: requestInfo.user_agent,
     });
 
     // Step 3: Check for suspicious activity
@@ -408,7 +405,7 @@ export const handleDeviceValidation = async (userData, deviceId, requestInfo) =>
         {
           device_id: deviceId,
           trust_score: deviceValidation.trust_score,
-          trust_level: deviceValidation.trust_level
+          trust_level: deviceValidation.trust_level,
         },
         requestInfo.ip_address,
         requestInfo.user_agent
@@ -432,9 +429,8 @@ export const handleDeviceValidation = async (userData, deviceId, requestInfo) =>
       success: true,
       is_valid: deviceValidation.is_valid,
       trust_score: deviceValidation.trust_score,
-      trust_level: deviceValidation.trust_level
+      trust_level: deviceValidation.trust_level,
     };
-
   } catch (error) {
     logger.error(`Device validation failed for user: ${userData.id}`, error);
     throw error;
@@ -448,7 +444,7 @@ export const handleUserLogout = async (userData, sessionId, deviceId, requestInf
 
     // Step 1: Revoke session
     const sessionRevocation = await deviceService.revokeSession(sessionId, 'user_logout');
-    
+
     if (!sessionRevocation.success) {
       logger.warn(`Failed to revoke session: ${sessionId}`);
     }
@@ -463,19 +459,18 @@ export const handleUserLogout = async (userData, sessionId, deviceId, requestInf
       event_data: {
         session_id: sessionId,
         device_id: deviceId,
-        logout_reason: 'user_initiated'
+        logout_reason: 'user_initiated',
       },
       ip_address: requestInfo.ip_address,
-      user_agent: requestInfo.user_agent
+      user_agent: requestInfo.user_agent,
     });
 
     logger.info(`Logout flow completed for user: ${userData.id}`);
 
     return {
       success: true,
-      session_revoked: sessionRevocation.success
+      session_revoked: sessionRevocation.success,
     };
-
   } catch (error) {
     logger.error(`Logout flow failed for user: ${userData.id}`, error);
     throw error;
@@ -494,7 +489,7 @@ export const checkServiceHealth = async () => {
       auth_service: { status: 'healthy' },
       device_service: deviceHealth,
       security_service: securityHealth,
-      overall_status: 'healthy'
+      overall_status: 'healthy',
     };
 
     // Check if any service is unhealthy
@@ -505,14 +500,13 @@ export const checkServiceHealth = async () => {
     logger.info('Service health check completed');
 
     return healthStatus;
-
   } catch (error) {
     logger.error('Service health check failed', error);
     return {
       auth_service: { status: 'healthy' },
       device_service: { status: 'error', error: error.message },
       security_service: { status: 'error', error: error.message },
-      overall_status: 'unhealthy'
+      overall_status: 'unhealthy',
     };
   }
 };
@@ -523,5 +517,5 @@ export const integrationService = {
   handleSecurityMonitoring,
   handleDeviceValidation,
   handleUserLogout,
-  checkServiceHealth
-}; 
+  checkServiceHealth,
+};

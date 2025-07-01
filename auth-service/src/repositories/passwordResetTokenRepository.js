@@ -33,10 +33,10 @@ class PasswordResetTokenRepository extends BaseRepository {
   }
 
   /**
-   * Tìm password reset token theo token (read từ slave)
+   * Tìm password reset token theo token hash (read từ slave)
    */
-  async findByToken(token) {
-    return await this.findOne({ token });
+  async findByToken(tokenHash) {
+    return await this.findOne({ token_hash: tokenHash });
   }
 
   /**
@@ -61,6 +61,14 @@ class PasswordResetTokenRepository extends BaseRepository {
    */
   async findById(id) {
     return await this.findOne({ id });
+  }
+
+  /**
+   * Đếm số lượng password reset tokens (read từ slave)
+   */
+  async count() {
+    const result = await this.getSlaveDb().count('* as count').first();
+    return parseInt(result.count);
   }
 }
 

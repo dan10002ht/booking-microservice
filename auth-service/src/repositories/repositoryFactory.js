@@ -9,7 +9,6 @@ import UserSessionRepository from './userSessionRepository.js';
 import UserProfileRepository from './userProfileRepository.js';
 import OAuthAccountRepository from './oauthAccountRepository.js';
 import OrganizationRepository from './organizationRepository.js';
-import RepositoryValidator from './validators/repositoryValidator.js';
 
 // Singleton instances for master-slave pattern
 let userRepositoryInstance = null;

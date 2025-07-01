@@ -24,8 +24,8 @@ class BaseRepository extends IRepository {
    */
   getSlaveDb() {
     // for testing before master-slave pattern
-    return masterDb(this.tableName);
-    // return getSlaveDb()(this.tableName);
+    // return masterDb(this.tableName);
+    return getSlaveDb()(this.tableName);
   }
 
   // ========== READ OPERATIONS (Sử dụng Slave) ==========

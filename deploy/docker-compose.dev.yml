@@ -23,7 +23,12 @@ services:
       -c hot_standby=on
       -c archive_mode=on
       -c archive_command='test ! -f /var/lib/postgresql/backup_in_progress && (test ! -f /var/lib/postgresql/archive/%f || cp %p /var/lib/postgresql/archive/%f)'
-      -c archive_timeout=60
+      -c archive_timeout=10
+      -c synchronous_commit=on
+      -c wal_sync_method=fsync
+      -c checkpoint_timeout=5min
+      -c max_wal_size=1GB
+      -c min_wal_size=80MB
 
   # Slave PostgreSQL instance 1
   postgres-slave1:
@@ -48,9 +53,13 @@ services:
     command: >
       postgres
       -c hot_standby=on
-      -c primary_conninfo='host=postgres-master port=5432 user=booking_user password=booking_pass'
+      -c primary_conninfo='host=postgres-master port=5432 user=booking_user password=booking_pass application_name=slave1'
       -c restore_command='cp /var/lib/postgresql/archive/%f %p'
       -c recovery_target_timeline='latest'
+      -c max_standby_archive_delay=30s
+      -c max_standby_streaming_delay=30s
+      -c wal_receiver_status_interval=10s
+      -c hot_standby_feedback=on
 
   # Slave PostgreSQL instance 2 (optional)
   postgres-slave2:
@@ -75,9 +84,13 @@ services:
     command: >
       postgres
       -c hot_standby=on
-      -c primary_conninfo='host=postgres-master port=5432 user=replicator password=replicator_pass'
+      -c primary_conninfo='host=postgres-master port=5432 user=replicator password=replicator_pass application_name=slave2'
       -c restore_command='cp /var/lib/postgresql/archive/%f %p'
       -c recovery_target_timeline='latest'
+      -c max_standby_archive_delay=30s
+      -c max_standby_streaming_delay=30s
+      -c wal_receiver_status_interval=10s
+      -c hot_standby_feedback=on
 
   # Legacy single postgres instance (for backward compatibility)
   postgres:
@@ -211,17 +224,23 @@ services:
       - NODE_ENV=development
       - PORT=50051
       - HOST=0.0.0.0
-      - DB_HOST=postgres-master
-      - DB_PORT=5432
-      - DB_NAME=booking_system_auth
-      - DB_USER=booking_user
-      - DB_PASSWORD=booking_pass
+      - DB_MASTER_HOST=postgres-master
+      - DB_MASTER_PORT=5432
+      - DB_MASTER_NAME=booking_system_auth
+      - DB_MASTER_USER=booking_user
+      - DB_MASTER_PASSWORD=booking_pass
+      - DB_SLAVE_HOST=postgres-slave1
+      - DB_SLAVE_PORT=5432
+      - DB_SLAVE_NAME=booking_system_auth
+      - DB_SLAVE_USER=booking_user
+      - DB_SLAVE_PASSWORD=booking_pass
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - JWT_SECRET=dev_jwt_secret
       - JWT_REFRESH_SECRET=dev_refresh_secret
     depends_on:
       - postgres-master
+      - postgres-slave1
       - redis
     volumes:
       - ../auth-service:/app

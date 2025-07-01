@@ -33,10 +33,10 @@ class EmailVerificationTokenRepository extends BaseRepository {
   }
 
   /**
-   * Tìm email verification token theo token (read từ slave)
+   * Tìm email verification token theo token hash (read từ slave)
    */
-  async findByToken(token) {
-    return await this.findOne({ token });
+  async findByToken(tokenHash) {
+    return await this.findOne({ token_hash: tokenHash });
   }
 
   /**
@@ -61,6 +61,14 @@ class EmailVerificationTokenRepository extends BaseRepository {
    */
   async findById(id) {
     return await this.findOne({ id });
+  }
+
+  /**
+   * Đếm số lượng email verification tokens (read từ slave)
+   */
+  async count() {
+    const result = await this.getSlaveDb().count('* as count').first();
+    return parseInt(result.count);
   }
 }
 

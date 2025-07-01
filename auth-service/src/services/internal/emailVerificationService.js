@@ -1,10 +1,17 @@
-import { getUserRepository, getTokenRepository } from '../../repositories/repositoryFactory.js';
+import {
+  getUserRepository,
+  getEmailVerificationTokenRepository,
+  getPasswordResetTokenRepository,
+  getUserSessionRepository,
+} from '../../repositories/repositoryFactory.js';
 import { sanitizeUserForResponse } from '../../utils/sanitizers.js';
 import crypto from 'crypto';
 
 // Get repository instances from factory
 const userRepository = getUserRepository();
-const tokenRepository = getTokenRepository();
+const emailVerificationTokenRepository = getEmailVerificationTokenRepository();
+const passwordResetTokenRepository = getPasswordResetTokenRepository();
+const userSessionRepository = getUserSessionRepository();
 
 // ========== EMAIL VERIFICATION ==========
 
@@ -27,7 +34,7 @@ export async function sendVerificationEmail(email) {
     const tokenHash = crypto.createHash('sha256').update(verificationToken).digest('hex');
 
     // Create verification token record
-    await tokenRepository.createEmailVerificationToken({
+    await emailVerificationTokenRepository.createEmailVerificationToken({
       user_id: user.id,
       token_hash: tokenHash,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
@@ -53,8 +60,8 @@ export async function verifyEmail(token) {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
     // Find valid verification token
-    const verificationToken = await tokenRepository
-      .findValidEmailVerificationTokens()
+    const verificationToken = await emailVerificationTokenRepository
+      .findValid()
       .where('token_hash', tokenHash)
       .first();
 
@@ -63,7 +70,7 @@ export async function verifyEmail(token) {
     }
 
     // Mark token as used
-    await tokenRepository.markEmailVerificationTokenAsUsed(verificationToken.id);
+    await emailVerificationTokenRepository.markAsUsed(verificationToken.id);
 
     // Update user verification status
     const updatedUser = await userRepository.updateUser(verificationToken.user_id, {
@@ -101,7 +108,7 @@ export async function forgotPassword(email) {
     const tokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
 
     // Create password reset token record
-    await tokenRepository.createPasswordResetToken({
+    await passwordResetTokenRepository.createPasswordResetToken({
       user_id: user.id,
       token_hash: tokenHash,
       expires_at: new Date(Date.now() + 1 * 60 * 60 * 1000), // 1 hour
@@ -127,8 +134,8 @@ export async function resetPassword(token, newPassword) {
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
     // Find valid reset token
-    const resetToken = await tokenRepository
-      .findValidPasswordResetTokens()
+    const resetToken = await passwordResetTokenRepository
+      .findValid()
       .where('token_hash', tokenHash)
       .first();
 
@@ -137,13 +144,13 @@ export async function resetPassword(token, newPassword) {
     }
 
     // Mark token as used
-    await tokenRepository.markPasswordResetTokenAsUsed(resetToken.id);
+    await passwordResetTokenRepository.markAsUsed(resetToken.id);
 
     // Update user password
     await userRepository.updatePassword(resetToken.user_id, newPassword);
 
     // Delete all user sessions to force re-login
-    await userRepository.deleteAllUserSessions(resetToken.user_id);
+    await userSessionRepository.deleteAllByUserId(resetToken.user_id);
 
     return {
       message: 'Password reset successfully',
@@ -160,14 +167,18 @@ export async function resetPassword(token, newPassword) {
  */
 export async function cleanupExpiredTokens() {
   try {
-    // Delete expired email verification tokens
-    await tokenRepository.deleteExpiredEmailVerificationTokens();
-
-    // Delete expired password reset tokens
-    await tokenRepository.deleteExpiredPasswordResetTokens();
+    // Cleanup expired tokens từ các repository riêng biệt
+    const [emailVerificationDeleted, passwordResetDeleted] = await Promise.all([
+      emailVerificationTokenRepository.deleteExpired(),
+      passwordResetTokenRepository.deleteExpired(),
+    ]);
 
     return {
       message: 'Expired tokens cleaned up successfully',
+      details: {
+        emailVerificationTokensDeleted: emailVerificationDeleted,
+        passwordResetTokensDeleted: passwordResetDeleted,
+      },
     };
   } catch (error) {
     throw new Error(`Token cleanup failed: ${error.message}`);

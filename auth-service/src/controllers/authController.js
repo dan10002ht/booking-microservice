@@ -1,8 +1,12 @@
-﻿import * as authService from '../services/internal/authService.js';
+import * as authService from '../services/internal/authService.js';
 import * as userManagementService from '../services/internal/userManagementService.js';
 import * as adminService from '../services/internal/adminService.js';
 import * as emailVerificationService from '../services/internal/emailVerificationService.js';
 import { sanitizePagination, sanitizeFilters } from '../utils/sanitizers.js';
+import { verifyRefreshToken } from '../utils/tokenUtils.js';
+import { integrationService } from '../services/integration/integrationService.js';
+import logger from '../utils/logger.js';
+import { enhancedLogin as enhancedLoginService } from '../services/internal/authIntegrationService.js';
 
 /**
  * Register with email and password
@@ -105,7 +109,7 @@ export async function register(call, callback) {
 }
 
 /**
- * User login
+ * User login - Basic version
  */
 export async function login(call, callback) {
   try {
@@ -137,18 +141,201 @@ export async function login(call, callback) {
   }
 }
 
-export async function logout(call, callback) {
+/**
+ * Enhanced login with device management and security monitoring
+ * TODO: Implement when device-service and security-service are available
+ */
+export async function enhancedLogin(call, callback) {
   try {
-    const { user_id, session_id } = call.request;
+    const { email, password, ip_address, user_agent, device_info } = call.request;
 
-    if (!user_id) {
+    if (!email || !password) {
       return callback({
         code: 3,
-        message: 'User ID is required',
+        message: 'Email and password are required',
       });
     }
 
-    const result = await authService.logout(user_id, session_id);
+    // Gọi service xử lý toàn bộ logic
+    const result = await enhancedLoginService({
+      email,
+      password,
+      ip_address,
+      user_agent,
+      device_info,
+    });
+
+    callback(null, result);
+  } catch (error) {
+    console.error('Enhanced login error:', error);
+    callback({
+      code: 13,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Device registration endpoint
+ * TODO: Implement when device-service is available
+ */
+export async function registerDevice(call, callback) {
+  try {
+    const { user_id, device_info, ip_address, user_agent } = call.request;
+
+    if (!user_id || !device_info) {
+      return callback({
+        code: 3,
+        message: 'User ID and device info are required',
+      });
+    }
+
+    // TODO: Check if device-service is available
+    const deviceServiceUrl = process.env.DEVICE_SERVICE_URL;
+    if (!deviceServiceUrl) {
+      return callback({
+        code: 14, // Unavailable
+        message: 'Device service not available',
+      });
+    }
+
+    const requestInfo = {
+      ip_address: ip_address || 'unknown',
+      user_agent: user_agent || 'unknown',
+    };
+
+    try {
+      const result = await integrationService.handleDeviceRegistration(
+        { id: user_id },
+        device_info,
+        requestInfo
+      );
+
+      callback(null, {
+        success: true,
+        device: result.device,
+        message: 'Device registered successfully',
+      });
+    } catch (error) {
+      logger.error('Device registration error:', error);
+      callback({
+        code: 13,
+        message: 'Device registration failed',
+      });
+    }
+  } catch (error) {
+    console.error('Register device error:', error);
+    callback({
+      code: 13,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Enhanced logout with device and security integration
+ * TODO: Implement when device-service and security-service are available
+ */
+export async function enhancedLogout(call, callback) {
+  try {
+    const { refresh_token, device_id } = call.request;
+
+    if (!refresh_token) {
+      return callback({
+        code: 3,
+        message: 'Refresh token is required',
+      });
+    }
+
+    // Extract user_id from refresh token
+    const decoded = verifyRefreshToken(refresh_token);
+    if (!decoded || !decoded.userId) {
+      return callback({
+        code: 3,
+        message: 'Invalid refresh token',
+      });
+    }
+
+    // TODO: Check if external services are available
+    const deviceServiceUrl = process.env.DEVICE_SERVICE_URL;
+    const securityServiceUrl = process.env.SECURITY_SERVICE_URL;
+
+    if (!deviceServiceUrl || !securityServiceUrl) {
+      logger.warn('External services not configured, using basic logout');
+      await authService.logout(decoded.userId);
+
+      callback(null, {
+        success: true,
+        message: 'Logout successful (basic mode)',
+        warning: 'Enhanced logout features temporarily unavailable',
+      });
+      return;
+    }
+
+    const requestInfo = {
+      ip_address: 'unknown', // TODO: Extract from request context
+      user_agent: 'unknown', // TODO: Extract from request context
+    };
+
+    try {
+      // Enhanced logout flow
+      await integrationService.handleUserLogout(
+        { id: decoded.userId },
+        decoded.sessionId, // TODO: Extract session ID from token
+        device_id,
+        requestInfo
+      );
+
+      // Basic logout
+      const result = await authService.logout(decoded.userId);
+
+      callback(null, {
+        success: true,
+        message: 'Enhanced logout successful',
+        details: result.message,
+      });
+    } catch (integrationError) {
+      logger.error('Integration service error during logout:', integrationError);
+
+      // Fallback to basic logout
+      await authService.logout(decoded.userId);
+
+      callback(null, {
+        success: true,
+        message: 'Logout successful (basic mode)',
+        warning: 'Enhanced logout features temporarily unavailable',
+      });
+    }
+  } catch (error) {
+    console.error('Enhanced logout error:', error);
+    callback({
+      code: 13,
+      message: error.message,
+    });
+  }
+}
+
+export async function logout(call, callback) {
+  try {
+    const { refresh_token } = call.request;
+
+    if (!refresh_token) {
+      return callback({
+        code: 3,
+        message: 'Refresh token is required',
+      });
+    }
+
+    // Extract user_id from refresh token
+    const decoded = verifyRefreshToken(refresh_token);
+    if (!decoded || !decoded.userId) {
+      return callback({
+        code: 3,
+        message: 'Invalid refresh token',
+      });
+    }
+
+    const result = await authService.logout(decoded.userId);
 
     callback(null, {
       success: true,
