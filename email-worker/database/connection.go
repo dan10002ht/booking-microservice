@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"booking-system/email-worker/config"
 
 	_ "github.com/lib/pq"
+	"go.uber.org/zap"
 )
 
 // Connection represents a database connection
@@ -16,10 +18,10 @@ type Connection struct {
 }
 
 // NewConnection creates a new database connection
-func NewConnection(cfg config.DatabaseConfig) (*Connection, error) {
+func NewConnection(cfg config.DatabaseConfig) (*sql.DB, error) {
 	dsn := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
-		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name, cfg.SSLMode,
+		"host=%s port=%d dbname=%s user=%s password=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.Name, cfg.User, cfg.Password, cfg.SSLMode,
 	)
 
 	db, err := sql.Open("postgres", dsn)
@@ -28,21 +30,47 @@ func NewConnection(cfg config.DatabaseConfig) (*Connection, error) {
 	}
 
 	// Configure connection pool
-	db.SetMaxOpenConns(cfg.MaxOpenConns)
-	db.SetMaxIdleConns(cfg.MaxIdleConns)
-	db.SetConnMaxLifetime(cfg.ConnMaxLifetime)
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	// Test the connection
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return &Connection{DB: db}, nil
+	return db, nil
+}
+
+// NewConnectionWithLogger creates a new database connection with logging
+func NewConnectionWithLogger(cfg config.DatabaseConfig, logger *zap.Logger) (*sql.DB, error) {
+	logger.Info("Connecting to database",
+		zap.String("host", cfg.Host),
+		zap.Int("port", cfg.Port),
+		zap.String("database", cfg.Name),
+		zap.String("user", cfg.User),
+		zap.String("ssl_mode", cfg.SSLMode),
+	)
+
+	db, err := NewConnection(cfg)
+	if err != nil {
+		logger.Error("Failed to connect to database", zap.Error(err))
+		return nil, err
+	}
+
+	logger.Info("Successfully connected to database")
+
+	return db, nil
+}
+
+// HealthCheck checks if the database is healthy
+func HealthCheck(db *sql.DB) error {
+	return db.Ping()
 }
 
 // Close closes the database connection
-func (c *Connection) Close() error {
-	return c.DB.Close()
+func Close(db *sql.DB) error {
+	return db.Close()
 }
 
 // Ping checks if the database is accessible

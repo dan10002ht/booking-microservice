@@ -1,0 +1,212 @@
+syntax = "proto3";
+
+package emailservice;
+
+option go_package = "booking-system/email-worker/protos";
+
+import "google/protobuf/timestamp.proto";
+
+// Email Service provides gRPC endpoints for email job management
+service EmailService {
+  // Create a new email job (fast path - queue only)
+  rpc CreateEmailJob(CreateEmailJobRequest) returns (CreateEmailJobResponse);
+  
+  // Create a tracked email job (database + queue)
+  rpc CreateTrackedEmailJob(CreateEmailJobRequest) returns (CreateEmailJobResponse);
+  
+  // Get job status by ID
+  rpc GetJobStatus(GetJobStatusRequest) returns (GetJobStatusResponse);
+  
+  // Get job statistics
+  rpc GetJobStats(GetJobStatsRequest) returns (GetJobStatsResponse);
+  
+  // Health check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+  
+  // Get queue statistics
+  rpc GetQueueStats(GetQueueStatsRequest) returns (GetQueueStatsResponse);
+  
+  // Create email template
+  rpc CreateEmailTemplate(CreateEmailTemplateRequest) returns (CreateEmailTemplateResponse);
+  
+  // Get email template
+  rpc GetEmailTemplate(GetEmailTemplateRequest) returns (GetEmailTemplateResponse);
+  
+  // Update email template
+  rpc UpdateEmailTemplate(UpdateEmailTemplateRequest) returns (UpdateEmailTemplateResponse);
+  
+  // Delete email template
+  rpc DeleteEmailTemplate(DeleteEmailTemplateRequest) returns (DeleteEmailTemplateResponse);
+}
+
+// Email job priority levels
+enum JobPriority {
+  PRIORITY_LOW = 0;
+  PRIORITY_NORMAL = 1;
+  PRIORITY_HIGH = 2;
+  PRIORITY_URGENT = 3;
+}
+
+// Email job status
+enum JobStatus {
+  STATUS_PENDING = 0;
+  STATUS_PROCESSING = 1;
+  STATUS_COMPLETED = 2;
+  STATUS_FAILED = 3;
+  STATUS_RETRYING = 4;
+}
+
+// Create email job request
+message CreateEmailJobRequest {
+  string job_type = 1;
+  string recipient_email = 2;
+  string subject = 3;
+  string template_id = 4;
+  map<string, string> template_data = 5;
+  JobPriority priority = 6;
+  int32 max_retries = 7;
+  google.protobuf.Timestamp scheduled_at = 8;
+  bool is_tracked = 9;
+}
+
+// Create email job response
+message CreateEmailJobResponse {
+  string job_id = 1;
+  bool success = 2;
+  string message = 3;
+  bool is_tracked = 4;
+}
+
+// Get job status request
+message GetJobStatusRequest {
+  string job_id = 1;
+}
+
+// Get job status response
+message GetJobStatusResponse {
+  string job_id = 1;
+  JobStatus status = 2;
+  int32 retry_count = 3;
+  string error_message = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+  google.protobuf.Timestamp completed_at = 7;
+  bool success = 8;
+  string message = 9;
+}
+
+// Get job stats request
+message GetJobStatsRequest {
+  string time_range = 1; // e.g., "1h", "24h", "7d", "30d"
+}
+
+// Get job stats response
+message GetJobStatsResponse {
+  int64 total_jobs = 1;
+  int64 completed_jobs = 2;
+  int64 failed_jobs = 3;
+  int64 pending_jobs = 4;
+  int64 retried_jobs = 5;
+  double success_rate = 6;
+  double average_processing_time = 7;
+  bool success = 8;
+  string message = 9;
+}
+
+// Health check request
+message HealthCheckRequest {}
+
+// Health check response
+message HealthCheckResponse {
+  string status = 1;
+  string version = 2;
+  google.protobuf.Timestamp timestamp = 3;
+  int64 uptime_seconds = 4;
+  bool queue_healthy = 5;
+  bool database_healthy = 6;
+  map<string, bool> providers_healthy = 7;
+  string message = 8;
+}
+
+// Get queue stats request
+message GetQueueStatsRequest {}
+
+// Get queue stats response
+message GetQueueStatsResponse {
+  int64 queue_size = 1;
+  int64 scheduled_queue_size = 2;
+  int32 active_workers = 3;
+  bool success = 4;
+  string message = 5;
+}
+
+// Email template
+message EmailTemplate {
+  string id = 1;
+  string name = 2;
+  string subject = 3;
+  string html_template = 4;
+  string text_template = 5;
+  map<string, string> variables = 6;
+  bool is_active = 7;
+  google.protobuf.Timestamp created_at = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// Create email template request
+message CreateEmailTemplateRequest {
+  string id = 1;
+  string name = 2;
+  string subject = 3;
+  string html_template = 4;
+  string text_template = 5;
+  map<string, string> variables = 6;
+}
+
+// Create email template response
+message CreateEmailTemplateResponse {
+  string template_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Get email template request
+message GetEmailTemplateRequest {
+  string template_id = 1;
+}
+
+// Get email template response
+message GetEmailTemplateResponse {
+  EmailTemplate template = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Update email template request
+message UpdateEmailTemplateRequest {
+  string id = 1;
+  string name = 2;
+  string subject = 3;
+  string html_template = 4;
+  string text_template = 5;
+  map<string, string> variables = 6;
+  bool is_active = 7;
+}
+
+// Update email template response
+message UpdateEmailTemplateResponse {
+  string template_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+
+// Delete email template request
+message DeleteEmailTemplateRequest {
+  string template_id = 1;
+}
+
+// Delete email template response
+message DeleteEmailTemplateResponse {
+  bool success = 2;
+  string message = 3;
+} 

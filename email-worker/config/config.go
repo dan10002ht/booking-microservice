@@ -7,115 +7,85 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Config holds all configuration for the application
+// Config holds all configuration for the email worker
 type Config struct {
-	App      AppConfig      `mapstructure:"app"`
+	Queue    QueueConfig    `mapstructure:"queue"`
 	Database DatabaseConfig `mapstructure:"database"`
-	Redis    RedisConfig    `mapstructure:"redis"`
-	Kafka    KafkaConfig    `mapstructure:"kafka"`
-	GRPC     GRPCConfig     `mapstructure:"grpc"`
+	Worker   WorkerConfig   `mapstructure:"worker"`
+	Server   ServerConfig   `mapstructure:"server"`
 	Email    EmailConfig    `mapstructure:"email"`
-	Metrics  MetricsConfig  `mapstructure:"metrics"`
-	Retry    RetryConfig    `mapstructure:"retry"`
-	Batch    BatchConfig    `mapstructure:"batch"`
+	Logging  LoggingConfig  `mapstructure:"logging"`
 }
 
-// AppConfig holds application-level configuration
-type AppConfig struct {
-	Name            string        `mapstructure:"name"`
-	Environment     string        `mapstructure:"environment"`
-	LogLevel        string        `mapstructure:"log_level"`
-	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
+// QueueConfig holds queue configuration
+type QueueConfig struct {
+	Type         string        `mapstructure:"type"`
+	Host         string        `mapstructure:"host"`
+	Port         int           `mapstructure:"port"`
+	Password     string        `mapstructure:"password"`
+	Database     int           `mapstructure:"database"`
+	QueueName    string        `mapstructure:"queue_name"`
+	BatchSize    int           `mapstructure:"batch_size"`
+	PollInterval time.Duration `mapstructure:"poll_interval"`
 }
 
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
-	Host            string        `mapstructure:"host"`
-	Port            int           `mapstructure:"port"`
-	Name            string        `mapstructure:"name"`
-	User            string        `mapstructure:"user"`
-	Password        string        `mapstructure:"password"`
-	SSLMode         string        `mapstructure:"ssl_mode"`
-	MaxOpenConns    int           `mapstructure:"max_open_conns"`
-	MaxIdleConns    int           `mapstructure:"max_idle_conns"`
-	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`
-}
-
-// RedisConfig holds Redis configuration
-type RedisConfig struct {
 	Host     string `mapstructure:"host"`
 	Port     int    `mapstructure:"port"`
+	Name     string `mapstructure:"name"`
+	User     string `mapstructure:"user"`
 	Password string `mapstructure:"password"`
-	DB       int    `mapstructure:"db"`
-	PoolSize int    `mapstructure:"pool_size"`
+	SSLMode  string `mapstructure:"ssl_mode"`
 }
 
-// KafkaConfig holds Kafka configuration
-type KafkaConfig struct {
-	Brokers         []string `mapstructure:"brokers"`
-	GroupID         string   `mapstructure:"group_id"`
-	TopicEmailJobs  string   `mapstructure:"topic_email_jobs"`
-	TopicEmailEvents string  `mapstructure:"topic_email_events"`
-	AutoOffsetReset string   `mapstructure:"auto_offset_reset"`
+// WorkerConfig holds worker configuration
+type WorkerConfig struct {
+	WorkerCount     int           `mapstructure:"worker_count"`
+	BatchSize       int           `mapstructure:"batch_size"`
+	PollInterval    time.Duration `mapstructure:"poll_interval"`
+	MaxRetries      int           `mapstructure:"max_retries"`
+	RetryDelay      time.Duration `mapstructure:"retry_delay"`
+	ProcessTimeout  time.Duration `mapstructure:"process_timeout"`
+	CleanupInterval time.Duration `mapstructure:"cleanup_interval"`
 }
 
-// GRPCConfig holds gRPC client configuration
-type GRPCConfig struct {
-	AuthService    string        `mapstructure:"auth_service"`
-	UserService    string        `mapstructure:"user_service"`
-	BookingService string        `mapstructure:"booking_service"`
-	Timeout        time.Duration `mapstructure:"timeout"`
+// ServerConfig holds HTTP server configuration
+type ServerConfig struct {
+	Port int `mapstructure:"port"`
 }
 
-// EmailConfig holds email provider configuration
+// EmailConfig holds email configuration
 type EmailConfig struct {
-	Provider string        `mapstructure:"provider"`
-	From     string        `mapstructure:"from"`
-	FromName string        `mapstructure:"from_name"`
-	SendGrid SendGridConfig `mapstructure:"sendgrid"`
-	SES      SESConfig     `mapstructure:"ses"`
-	SMTP     SMTPConfig    `mapstructure:"smtp"`
+	DefaultProvider string                    `mapstructure:"default_provider"`
+	Providers       map[string]ProviderConfig `mapstructure:"providers"`
 }
 
-// SendGridConfig holds SendGrid configuration
-type SendGridConfig struct {
+// ProviderConfig holds email provider configuration
+type ProviderConfig struct {
+	// SendGrid
 	APIKey string `mapstructure:"api_key"`
-}
-
-// SESConfig holds AWS SES configuration
-type SESConfig struct {
-	Region          string `mapstructure:"region"`
-	AccessKeyID     string `mapstructure:"access_key_id"`
-	SecretAccessKey string `mapstructure:"secret_access_key"`
-}
-
-// SMTPConfig holds SMTP configuration
-type SMTPConfig struct {
+	
+	// AWS SES
+	Region      string `mapstructure:"region"`
+	AccessKey   string `mapstructure:"access_key"`
+	SecretKey   string `mapstructure:"secret_key"`
+	FromEmail   string `mapstructure:"from_email"`
+	FromName    string `mapstructure:"from_name"`
+	
+	// SMTP
 	Host     string `mapstructure:"host"`
 	Port     int    `mapstructure:"port"`
 	Username string `mapstructure:"username"`
 	Password string `mapstructure:"password"`
-	TLS      bool   `mapstructure:"tls"`
+	UseTLS   bool   `mapstructure:"use_tls"`
 }
 
-// MetricsConfig holds metrics configuration
-type MetricsConfig struct {
-	Enabled bool `mapstructure:"enabled"`
-	Port    int  `mapstructure:"port"`
-}
-
-// RetryConfig holds retry configuration
-type RetryConfig struct {
-	MaxAttempts        int           `mapstructure:"max_attempts"`
-	Delay              time.Duration `mapstructure:"delay"`
-	BackoffMultiplier  float64       `mapstructure:"backoff_multiplier"`
-}
-
-// BatchConfig holds batch processing configuration
-type BatchConfig struct {
-	Size              int           `mapstructure:"size"`
-	Timeout           time.Duration `mapstructure:"timeout"`
-	MaxConcurrentJobs int           `mapstructure:"max_concurrent_jobs"`
+// LoggingConfig holds logging configuration
+type LoggingConfig struct {
+	Level      string `mapstructure:"level"`
+	Format     string `mapstructure:"format"`
+	OutputPath string `mapstructure:"output_path"`
 }
 
 // Load loads configuration from environment variables
