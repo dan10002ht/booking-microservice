@@ -14,7 +14,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Load protobuf definition
-const PROTO_PATH = path.join(__dirname, 'src', 'proto', 'auth.proto');
+const PROTO_PATH = path.join(__dirname, '..', 'shared-lib', 'protos', 'auth.proto');
 
 const packageDefinition = protoLoader.loadSync(PROTO_PATH, {
   keepCase: true,
@@ -37,7 +37,7 @@ async function testEmailRegistration() {
 
   const emailData = {
     email: 'test@example.com',
-    password: 'securePassword123',
+    password: 'securePassword123!',
     first_name: 'John',
     last_name: 'Doe',
     phone: '+1234567890',
@@ -116,10 +116,13 @@ async function testLegacyRegistration() {
 
   const legacyData = {
     email: 'legacy@example.com',
-    password: 'legacyPassword123',
+    password: 'legacyPass123!',
     first_name: 'Legacy',
     last_name: 'User',
+    phone: '+1234567890',
     role: 'user',
+    ip_address: '192.168.1.3',
+    user_agent: 'Mozilla/5.0 (Legacy Browser)',
   };
 
   try {
@@ -151,10 +154,13 @@ async function testDuplicateEmailRegistration() {
 
   const duplicateData = {
     email: 'test@example.com', // Same email as first test
-    password: 'anotherPassword123',
+    password: 'duplicatePass123!',
     first_name: 'Duplicate',
     last_name: 'User',
+    phone: '+1234567890',
     role: 'user',
+    ip_address: '192.168.1.4',
+    user_agent: 'Mozilla/5.0 (Duplicate Browser)',
   };
 
   try {

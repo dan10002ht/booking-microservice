@@ -2,7 +2,7 @@ import grpc from '@grpc/grpc-js';
 import protoLoader from '@grpc/proto-loader';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import logger from '../utils/logger.js';
+import logger from '../../utils/logger.js';
 import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);

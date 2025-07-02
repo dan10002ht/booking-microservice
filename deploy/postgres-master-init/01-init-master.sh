@@ -57,6 +57,7 @@ cat >> /var/lib/postgresql/data/pg_hba.conf <<EOF
 # Replication connections
 host    replication     replicator      172.18.0.0/16         md5
 host    replication     replicator      172.17.0.0/16         md5
+host    replication     replicator      172.19.0.0/16         md5
 host    replication     replicator      10.0.0.0/8            md5
 EOF
 

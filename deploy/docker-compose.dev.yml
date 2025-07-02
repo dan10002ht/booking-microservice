@@ -45,7 +45,7 @@ services:
       - "55433:5432"
     volumes:
       - postgres_slave1_data:/var/lib/postgresql/data
-      - ./postgres-slave-init:/docker-entrypoint-initdb.d
+      - ./postgres-slave-init/01-init-slave.sh:/docker-entrypoint-initdb.d/01-init-slave.sh
     networks:
       - booking-net
     depends_on:
@@ -53,7 +53,7 @@ services:
     command: >
       postgres
       -c hot_standby=on
-      -c primary_conninfo='host=postgres-master port=5432 user=booking_user password=booking_pass application_name=slave1'
+      -c primary_conninfo='host=postgres-master port=5432 user=replicator password=replicator_pass application_name=slave1'
       -c restore_command='cp /var/lib/postgresql/archive/%f %p'
       -c recovery_target_timeline='latest'
       -c max_standby_archive_delay=30s
@@ -76,7 +76,7 @@ services:
       - "55434:5432"
     volumes:
       - postgres_slave2_data:/var/lib/postgresql/data
-      - ./postgres-slave-init:/docker-entrypoint-initdb.d
+      - ./postgres-slave-init/01-init-slave2.sh:/docker-entrypoint-initdb.d/01-init-slave2.sh
     networks:
       - booking-net
     depends_on:

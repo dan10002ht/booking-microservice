@@ -28,6 +28,22 @@ const oauthAccountRepository = getOAuthAccountRepository();
 const refreshTokenRepository = getRefreshTokenRepository();
 const userSessionRepository = getUserSessionRepository();
 
+// ========== HELPER FUNCTIONS ==========
+
+/**
+ * Create user session and refresh token in correct order
+ * @param {number} userId - User ID
+ * @param {object} sessionData - Session data
+ * @param {object} refreshTokenData - Refresh token data
+ */
+async function createUserSessionAndRefreshToken(userId, sessionData, refreshTokenData) {
+  // Tạo user_sessions trước để tránh foreign key constraint violation
+  await userSessionRepository.createUserSession(userId, sessionData);
+
+  // Sau đó mới tạo refresh_tokens
+  await refreshTokenRepository.createRefreshTokenForSession(refreshTokenData);
+}
+
 // ========== REGISTRATION & LOGIN ==========
 
 /**
@@ -108,9 +124,9 @@ export async function registerWithEmail(registerData) {
     await Promise.all([
       cacheService.cacheUserProfile(newUser.public_id, userProfile),
       cacheService.cacheUserRoles(newUser.public_id, userWithRoles.roles || []),
-      refreshTokenRepository.createRefreshTokenForSession(refreshTokenData),
-      userSessionRepository.createUserSession(newUser.id, sessionData),
     ]);
+
+    await createUserSessionAndRefreshToken(newUser.id, sessionData, refreshTokenData);
 
     // Nếu có gửi email xác thực hoặc audit log thì nên fire-and-forget ở đây (chưa có)
 
@@ -185,21 +201,25 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
       await Promise.all([
         cacheService.cacheUserProfile(existingUser.public_id, userProfile),
         cacheService.cacheUserRoles(existingUser.public_id, userWithRoles.roles || []),
-        refreshTokenRepository.createRefreshTokenForSession({
+      ]);
+
+      await createUserSessionAndRefreshToken(
+        existingUser.id,
+        {
+          session_id: sessionId,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          ip_address: sanitizedSessionData.ip_address,
+          user_agent: sanitizedSessionData.user_agent,
+        },
+        {
           user_id: existingUser.id,
           session_id: sessionId,
           token_hash: tokens.refreshToken, // In production, hash this
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
           device_info: sanitizedSessionData.user_agent,
           ip_address: sanitizedSessionData.ip_address,
-        }),
-        userSessionRepository.createUserSession(existingUser.id, {
-          session_id: sessionId,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-          ip_address: sanitizedSessionData.ip_address,
-          user_agent: sanitizedSessionData.user_agent,
-        }),
-      ]);
+        }
+      );
 
       return {
         user: sanitizeUserForResponse({ ...existingUser, role: primaryRole.name }),
@@ -252,21 +272,25 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
       await Promise.all([
         cacheService.cacheUserProfile(existingUserByEmail.public_id, userProfile),
         cacheService.cacheUserRoles(existingUserByEmail.public_id, userWithRoles.roles || []),
-        refreshTokenRepository.createRefreshTokenForSession({
+      ]);
+
+      await createUserSessionAndRefreshToken(
+        existingUserByEmail.id,
+        {
+          session_id: sessionId,
+          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+          ip_address: sanitizedSessionData.ip_address,
+          user_agent: sanitizedSessionData.user_agent,
+        },
+        {
           user_id: existingUserByEmail.id,
           session_id: sessionId,
           token_hash: tokens.refreshToken, // In production, hash this
           expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
           device_info: sanitizedSessionData.user_agent,
           ip_address: sanitizedSessionData.ip_address,
-        }),
-        userSessionRepository.createUserSession(existingUserByEmail.id, {
-          session_id: sessionId,
-          expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-          ip_address: sanitizedSessionData.ip_address,
-          user_agent: sanitizedSessionData.user_agent,
-        }),
-      ]);
+        }
+      );
 
       return {
         user: sanitizeUserForResponse({ ...existingUserByEmail, role: primaryRole.name }),
@@ -321,21 +345,25 @@ export async function registerWithOAuth(provider, oauthData, sessionData = {}) {
     await Promise.all([
       cacheService.cacheUserProfile(newUser.public_id, userProfile),
       cacheService.cacheUserRoles(newUser.public_id, []),
-      refreshTokenRepository.createRefreshTokenForSession({
+    ]);
+
+    await createUserSessionAndRefreshToken(
+      newUser.id,
+      {
+        session_id: sessionId,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        ip_address: sanitizedSessionData.ip_address,
+        user_agent: sanitizedSessionData.user_agent,
+      },
+      {
         user_id: newUser.id,
         session_id: sessionId,
         token_hash: tokens.refreshToken, // In production, hash this
         expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         device_info: sanitizedSessionData.user_agent,
         ip_address: sanitizedSessionData.ip_address,
-      }),
-      userSessionRepository.createUserSession(newUser.id, {
-        session_id: sessionId,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        ip_address: sanitizedSessionData.ip_address,
-        user_agent: sanitizedSessionData.user_agent,
-      }),
-    ]);
+      }
+    );
 
     return {
       user: sanitizeUserForResponse({ ...newUser, role: 'individual' }),
@@ -407,10 +435,9 @@ export async function login(email, password, sessionData = {}) {
     await Promise.all([
       cacheService.cacheUserProfile(user.public_id, userProfile),
       cacheService.cacheUserRoles(user.public_id, userWithRoles.roles || []),
-      refreshTokenRepository.createRefreshTokenForSession(refreshTokenData),
-      userSessionRepository.createUserSession(user.id, sessionInfo),
     ]);
-    console.log('userProfile', userProfile);
+
+    await createUserSessionAndRefreshToken(user.id, sessionInfo, refreshTokenData);
 
     return {
       user: userProfile,
@@ -547,10 +574,19 @@ export async function refreshToken(refreshToken) {
     };
 
     // Song song hóa revoke token cũ và tạo token mới
-    await Promise.all([
-      refreshTokenRepository.revokeRefreshToken(tokenRecord.id),
-      refreshTokenRepository.createRefreshTokenForSession(newRefreshTokenData),
-    ]);
+    await Promise.all([refreshTokenRepository.revokeRefreshToken(tokenRecord.id)]);
+
+    // Tạo session và refresh token mới
+    await createUserSessionAndRefreshToken(
+      user.id,
+      {
+        session_id: newSessionId,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        ip_address: tokenRecord.ip_address || 'unknown',
+        user_agent: tokenRecord.device_info || 'unknown',
+      },
+      newRefreshTokenData
+    );
 
     return {
       access_token: tokens.accessToken,
