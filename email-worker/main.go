@@ -3,17 +3,20 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
 	"booking-system/email-worker/config"
 	"booking-system/email-worker/database"
-	"booking-system/email-worker/grpc"
+	"booking-system/email-worker/metrics"
 	"booking-system/email-worker/processor"
 	"booking-system/email-worker/queue"
 	"booking-system/email-worker/repositories"
@@ -90,6 +93,15 @@ func main() {
 		if err := router.Run(addr); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("Failed to start HTTP server", zap.Error(err))
 		}
+	}()
+
+	// Khởi tạo Prometheus metrics
+	metrics.Init()
+
+	// Expose /metrics endpoint cho Prometheus
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		http.ListenAndServe(":2112", nil)
 	}()
 
 	// Wait for shutdown signal

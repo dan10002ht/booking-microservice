@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"booking-system/email-worker/models"
+	"booking-system/email-worker/database/models"
 	"booking-system/email-worker/queue"
 	"booking-system/email-worker/services"
 )
@@ -157,16 +157,11 @@ func (p *Processor) performCleanup() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
-	// Clean up old completed jobs (older than 30 days)
-	err := p.emailService.CleanupOldJobs(ctx, 30*24*time.Hour)
+	// Clean up old jobs (older than 30 days)
+	cutoffTime := time.Now().AddDate(0, 0, -30)
+	err := p.emailService.CleanupOldJobs(ctx, cutoffTime)
 	if err != nil {
 		p.logger.Error("Failed to cleanup old jobs", zap.Error(err))
-	}
-
-	// Clean up old failed jobs (older than 7 days)
-	err = p.emailService.CleanupOldFailedJobs(ctx, 7*24*time.Hour)
-	if err != nil {
-		p.logger.Error("Failed to cleanup old failed jobs", zap.Error(err))
 	}
 
 	p.logger.Info("Cleanup completed")
@@ -260,15 +255,6 @@ func (p *Processor) Health(ctx context.Context) error {
 
 // PublishJob publishes a job to the queue
 func (p *Processor) PublishJob(ctx context.Context, job *models.EmailJob) error {
-	// If job should be tracked, save to database first
-	if job.ShouldBeTracked() {
-		job.IsTracked = true
-		err := p.emailService.CreateTrackedEmailJob(ctx, job)
-		if err != nil {
-			return fmt.Errorf("failed to create tracked job: %w", err)
-		}
-	}
-
 	// Publish to queue
 	err := p.queue.Publish(ctx, job)
 	if err != nil {
@@ -276,10 +262,9 @@ func (p *Processor) PublishJob(ctx context.Context, job *models.EmailJob) error 
 	}
 
 	p.logger.Info("Job published to queue",
-		zap.String("job_id", job.ID.String()),
-		zap.String("job_type", job.JobType),
-		zap.String("recipient", job.RecipientEmail),
-		zap.Bool("tracked", job.IsTracked),
+		zap.String("job_id", job.ID),
+		zap.String("template_name", job.TemplateName),
+		zap.Strings("recipients", []string(job.To)),
 	)
 
 	return nil

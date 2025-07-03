@@ -1,94 +1,72 @@
 package database
 
 import (
-	"context"
 	"database/sql"
 	"fmt"
 	"time"
 
-	"booking-system/email-worker/config"
-
+	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
-	"go.uber.org/zap"
+
+	"booking-system/email-worker/config"
 )
 
-// Connection represents a database connection
-type Connection struct {
-	DB *sql.DB
+// DB wraps sqlx.DB for convenience
+type DB struct {
+	*sqlx.DB
 }
 
-// NewConnection creates a new database connection
-func NewConnection(cfg config.DatabaseConfig) (*sql.DB, error) {
+// NewConnection creates a new database connection using sqlx
+func NewConnection(cfg config.DatabaseConfig) (*DB, error) {
 	dsn := fmt.Sprintf(
-		"host=%s port=%d dbname=%s user=%s password=%s sslmode=%s",
-		cfg.Host, cfg.Port, cfg.Name, cfg.User, cfg.Password, cfg.SSLMode,
+		"host=%s port=%d user=%s password=%s dbname=%s sslmode=%s",
+		cfg.Host, cfg.Port, cfg.User, cfg.Password, cfg.Name, cfg.SSLMode,
 	)
 
-	db, err := sql.Open("postgres", dsn)
+	db, err := sqlx.Connect("postgres", dsn)
 	if err != nil {
-		return nil, fmt.Errorf("failed to open database connection: %w", err)
+		return nil, fmt.Errorf("failed to connect to database: %w", err)
 	}
 
-	// Configure connection pool
-	db.SetMaxOpenConns(25)
-	db.SetMaxIdleConns(5)
-	db.SetConnMaxLifetime(5 * time.Minute)
+	// Configure connection pool with defaults if not set
+	maxOpenConns := cfg.MaxOpenConns
+	if maxOpenConns == 0 {
+		maxOpenConns = 25
+	}
+	
+	maxIdleConns := cfg.MaxIdleConns
+	if maxIdleConns == 0 {
+		maxIdleConns = 5
+	}
+	
+	connMaxLifetime := cfg.ConnMaxLifetime
+	if connMaxLifetime == 0 {
+		connMaxLifetime = 5 * time.Minute
+	}
+
+	db.SetMaxOpenConns(maxOpenConns)
+	db.SetMaxIdleConns(maxIdleConns)
+	db.SetConnMaxLifetime(connMaxLifetime)
 
 	// Test the connection
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	return db, nil
-}
-
-// NewConnectionWithLogger creates a new database connection with logging
-func NewConnectionWithLogger(cfg config.DatabaseConfig, logger *zap.Logger) (*sql.DB, error) {
-	logger.Info("Connecting to database",
-		zap.String("host", cfg.Host),
-		zap.Int("port", cfg.Port),
-		zap.String("database", cfg.Name),
-		zap.String("user", cfg.User),
-		zap.String("ssl_mode", cfg.SSLMode),
-	)
-
-	db, err := NewConnection(cfg)
-	if err != nil {
-		logger.Error("Failed to connect to database", zap.Error(err))
-		return nil, err
-	}
-
-	logger.Info("Successfully connected to database")
-
-	return db, nil
-}
-
-// HealthCheck checks if the database is healthy
-func HealthCheck(db *sql.DB) error {
-	return db.Ping()
+	return &DB{db}, nil
 }
 
 // Close closes the database connection
-func Close(db *sql.DB) error {
-	return db.Close()
+func (db *DB) Close() error {
+	return db.DB.Close()
 }
 
-// Ping checks if the database is accessible
-func (c *Connection) Ping() error {
-	return c.DB.Ping()
+// GetDB returns the underlying sqlx.DB
+func (db *DB) GetDB() *sqlx.DB {
+	return db.DB
 }
 
-// Stats returns database connection statistics
-func (c *Connection) Stats() sql.DBStats {
-	return c.DB.Stats()
-}
-
-// Begin starts a new transaction
-func (c *Connection) Begin() (*sql.Tx, error) {
-	return c.DB.Begin()
-}
-
-// BeginTx starts a new transaction with context
-func (c *Connection) BeginTx(ctx context.Context) (*sql.Tx, error) {
-	return c.DB.BeginTx(ctx, nil)
+// GetSQLDB returns the underlying sql.DB for compatibility
+func (db *DB) GetSQLDB() *sql.DB {
+	return db.DB.DB
 } 

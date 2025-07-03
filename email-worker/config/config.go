@@ -31,12 +31,15 @@ type QueueConfig struct {
 
 // DatabaseConfig holds database configuration
 type DatabaseConfig struct {
-	Host     string `mapstructure:"host"`
-	Port     int    `mapstructure:"port"`
-	Name     string `mapstructure:"name"`
-	User     string `mapstructure:"user"`
-	Password string `mapstructure:"password"`
-	SSLMode  string `mapstructure:"ssl_mode"`
+	Host            string        `mapstructure:"host"`
+	Port            int           `mapstructure:"port"`
+	Name            string        `mapstructure:"name"`
+	User            string        `mapstructure:"user"`
+	Password        string        `mapstructure:"password"`
+	SSLMode         string        `mapstructure:"ssl_mode"`
+	MaxOpenConns    int           `mapstructure:"max_open_conns"`
+	MaxIdleConns    int           `mapstructure:"max_idle_conns"`
+	ConnMaxLifetime time.Duration `mapstructure:"conn_max_lifetime"`
 }
 
 // WorkerConfig holds worker configuration
@@ -121,10 +124,7 @@ func Load() (*Config, error) {
 // setDefaults sets default values for configuration
 func setDefaults() {
 	// App defaults
-	viper.SetDefault("app.name", "email-worker")
-	viper.SetDefault("app.environment", "development")
-	viper.SetDefault("app.log_level", "info")
-	viper.SetDefault("app.shutdown_timeout", "30s")
+	viper.SetDefault("logging.level", "info")
 
 	// Database defaults
 	viper.SetDefault("database.host", "localhost")
@@ -156,9 +156,7 @@ func setDefaults() {
 	viper.SetDefault("grpc.timeout", "30s")
 
 	// Email defaults
-	viper.SetDefault("email.provider", "sendgrid")
-	viper.SetDefault("email.from", "noreply@bookingsystem.com")
-	viper.SetDefault("email.from_name", "Booking System")
+	viper.SetDefault("email.default_provider", "sendgrid")
 
 	// Metrics defaults
 	viper.SetDefault("metrics.enabled", true)
@@ -177,10 +175,6 @@ func setDefaults() {
 
 // validateConfig validates the configuration
 func validateConfig(config *Config) error {
-	if config.App.Name == "" {
-		return fmt.Errorf("app name is required")
-	}
-
 	if config.Database.Host == "" {
 		return fmt.Errorf("database host is required")
 	}
@@ -189,8 +183,8 @@ func validateConfig(config *Config) error {
 		return fmt.Errorf("database name is required")
 	}
 
-	if config.Email.Provider == "" {
-		return fmt.Errorf("email provider is required")
+	if config.Email.DefaultProvider == "" {
+		return fmt.Errorf("email default provider is required")
 	}
 
 	return nil

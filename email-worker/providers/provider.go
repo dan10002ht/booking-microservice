@@ -7,7 +7,9 @@ import (
 
 // EmailRequest represents an email to be sent
 type EmailRequest struct {
-	To          string            `json:"to"`
+	To          []string          `json:"to"`
+	CC          []string          `json:"cc,omitempty"`
+	BCC         []string          `json:"bcc,omitempty"`
 	Subject     string            `json:"subject"`
 	HTMLContent string            `json:"html_content"`
 	TextContent string            `json:"text_content"`

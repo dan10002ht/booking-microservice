@@ -1,91 +1,139 @@
 package models
 
 import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
 	"time"
+
+	"github.com/google/uuid"
 )
+
+// JobStatus represents the status of an email job
+type JobStatus string
+
+// JobPriority represents the priority of an email job
+type JobPriority int
+
+// StringArray represents a string array for database storage
+type StringArray []string
+
+// VariablesMap represents a variables map for database storage
+type VariablesMap map[string]interface{}
 
 // EmailJob represents an email job in the queue
 type EmailJob struct {
-	ID              int64     `json:"id" db:"id"`
-	JobType         string    `json:"job_type" db:"job_type"`           // "verification", "password_reset", "welcome", "security", "invitation"
-	Priority        int       `json:"priority" db:"priority"`           // 1=high, 2=normal, 3=low
-	Status          string    `json:"status" db:"status"`               // "pending", "processing", "sent", "failed", "cancelled"
-	UserID          string    `json:"user_id" db:"user_id"`             // UUID from auth-service
-	Email           string    `json:"email" db:"email"`
-	Subject         string    `json:"subject" db:"subject"`
-	TemplateID      string    `json:"template_id" db:"template_id"`     // Template identifier
-	TemplateData    string    `json:"template_data" db:"template_data"` // JSON data for template
-	Provider        string    `json:"provider" db:"provider"`           // "sendgrid", "ses", "smtp"
-	RetryCount      int       `json:"retry_count" db:"retry_count"`
-	MaxRetries      int       `json:"max_retries" db:"max_retries"`
-	ErrorMessage    string    `json:"error_message" db:"error_message"`
-	SentAt          *time.Time `json:"sent_at" db:"sent_at"`
-	ScheduledAt     *time.Time `json:"scheduled_at" db:"scheduled_at"`
-	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
+	ID             string        `json:"id" db:"id"`
+	To             StringArray   `json:"to" db:"to"`
+	CC             StringArray   `json:"cc" db:"cc"`
+	BCC            StringArray   `json:"bcc" db:"bcc"`
+	TemplateName   string        `json:"template_name" db:"template_name"`
+	Variables      VariablesMap  `json:"variables" db:"variables"`
+	Status         JobStatus     `json:"status" db:"status"`
+	Priority       JobPriority   `json:"priority" db:"priority"`
+	RetryCount     int           `json:"retry_count" db:"retry_count"`
+	MaxRetries     int           `json:"max_retries" db:"max_retries"`
+	ErrorMessage   string        `json:"error_message" db:"error_message"`
+	ProcessedAt    *time.Time    `json:"processed_at" db:"processed_at"`
+	SentAt         *time.Time    `json:"sent_at" db:"sent_at"`
+	CreatedAt      time.Time     `json:"created_at" db:"created_at"`
+	UpdatedAt      time.Time     `json:"updated_at" db:"updated_at"`
 }
 
-// EmailTemplate represents email templates
-type EmailTemplate struct {
-	ID          int64     `json:"id" db:"id"`
-	Name        string    `json:"name" db:"name"`               // "email_verification", "password_reset", "welcome"
-	Subject     string    `json:"subject" db:"subject"`
-	HTMLContent string    `json:"html_content" db:"html_content"`
-	TextContent string    `json:"text_content" db:"text_content"`
-	Variables   string    `json:"variables" db:"variables"`     // JSON array of variable names
-	IsActive    bool      `json:"is_active" db:"is_active"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
+// Value implements driver.Valuer for StringArray
+func (s StringArray) Value() (driver.Value, error) {
+	if s == nil {
+		return nil, nil
+	}
+	return json.Marshal(s)
 }
+
+// Scan implements sql.Scanner for StringArray
+func (s *StringArray) Scan(value interface{}) error {
+	if value == nil {
+		*s = nil
+		return nil
+	}
+
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(bytes, s)
+}
+
+// Value implements driver.Valuer for VariablesMap
+func (m VariablesMap) Value() (driver.Value, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return json.Marshal(m)
+}
+
+// Scan implements sql.Scanner for VariablesMap
+func (m *VariablesMap) Scan(value interface{}) error {
+	if value == nil {
+		*m = nil
+		return nil
+	}
+
+	bytes, ok := value.([]byte)
+	if !ok {
+		return errors.New("type assertion to []byte failed")
+	}
+
+	return json.Unmarshal(bytes, m)
+}
+
+// NewEmailJob creates a new email job with a generated UUID
+func NewEmailJob(to, cc, bcc []string, templateName string, variables map[string]interface{}, priority JobPriority) *EmailJob {
+	return &EmailJob{
+		ID:           uuid.New().String(),
+		To:           StringArray(to),
+		CC:           StringArray(cc),
+		BCC:          StringArray(bcc),
+		TemplateName: templateName,
+		Variables:    VariablesMap(variables),
+		Status:       JobStatusPending,
+		Priority:     priority,
+		RetryCount:   0,
+		MaxRetries:   3,
+		ErrorMessage: "",
+	}
+}
+
+// Job status constants
+const (
+	JobStatusPending    JobStatus = "pending"
+	JobStatusProcessing JobStatus = "processing"
+	JobStatusCompleted  JobStatus = "completed"
+	JobStatusFailed     JobStatus = "failed"
+	JobStatusCancelled  JobStatus = "cancelled"
+)
+
+// Job priority constants
+const (
+	JobPriorityHigh   JobPriority = 1
+	JobPriorityNormal JobPriority = 2
+	JobPriorityLow    JobPriority = 3
+)
 
 // EmailTracking represents email delivery tracking
 type EmailTracking struct {
-	ID          int64     `json:"id" db:"id"`
-	JobID       int64     `json:"job_id" db:"job_id"`
-	Provider    string    `json:"provider" db:"provider"`
-	MessageID   string    `json:"message_id" db:"message_id"`   // Provider's message ID
-	Status      string    `json:"status" db:"status"`           // "sent", "delivered", "bounced", "opened", "clicked"
-	SentAt      *time.Time `json:"sent_at" db:"sent_at"`
-	DeliveredAt *time.Time `json:"delivered_at" db:"delivered_at"`
-	OpenedAt    *time.Time `json:"opened_at" db:"opened_at"`
-	ClickedAt   *time.Time `json:"clicked_at" db:"clicked_at"`
-	BounceReason string   `json:"bounce_reason" db:"bounce_reason"`
-	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+	ID           uuid.UUID  `json:"id" db:"id"`
+	JobID        uuid.UUID  `json:"job_id" db:"job_id"`
+	Provider     *string    `json:"provider" db:"provider"`
+	MessageID    *string    `json:"message_id" db:"message_id"`   // Provider's message ID
+	Status       string     `json:"status" db:"status"`           // "sent", "delivered", "bounced", "opened", "clicked"
+	SentAt       *time.Time `json:"sent_at" db:"sent_at"`
+	DeliveredAt  *time.Time `json:"delivered_at" db:"delivered_at"`
+	OpenedAt     *time.Time `json:"opened_at" db:"opened_at"`
+	ClickedAt    *time.Time `json:"clicked_at" db:"clicked_at"`
+	ErrorMessage *string    `json:"error_message" db:"error_message"`
+	BounceReason *string    `json:"bounce_reason" db:"bounce_reason"`
+	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
 }
-
-// EmailJobStatus represents job status constants
-const (
-	JobStatusPending    = "pending"
-	JobStatusProcessing = "processing"
-	JobStatusSent       = "sent"
-	JobStatusFailed     = "failed"
-	JobStatusCancelled  = "cancelled"
-)
-
-// EmailJobType represents job type constants
-const (
-	JobTypeVerification   = "verification"
-	JobTypePasswordReset  = "password_reset"
-	JobTypeWelcome        = "welcome"
-	JobTypeSecurity       = "security"
-	JobTypeInvitation     = "invitation"
-	JobTypeNotification   = "notification"
-)
-
-// EmailPriority represents priority constants
-const (
-	PriorityHigh   = 1
-	PriorityNormal = 2
-	PriorityLow    = 3
-)
-
-// EmailProvider represents provider constants
-const (
-	ProviderSendGrid = "sendgrid"
-	ProviderSES      = "ses"
-	ProviderSMTP     = "smtp"
-)
 
 // EmailTrackingStatus represents tracking status constants
 const (

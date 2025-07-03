@@ -495,3 +495,21 @@ Email Worker service đã được implement đầy đủ với:
 - ✅ Environment configuration
 
 Service này có thể xử lý các loại email jobs khác nhau như verification, password reset, welcome emails, và organization invitations một cách bất đồng bộ và reliable.
+
+---
+
+### 📋 **Checklist Hybrid & Production-Ready**
+
+1. **Template Rendering**: Go template cho HTML/text, service render từ DB + data
+2. **Job Processor & Worker Pool**: Xử lý song song, polling queue, update trạng thái job trong DB, graceful shutdown
+3. **Error Handling & Retry Logic**: Retry tự động, backoff, log lỗi, chuyển trạng thái failed nếu quá số lần
+4. **Metrics & Monitoring**: Prometheus metrics, healthcheck endpoint
+5. **Testing**: Unit test, integration test cho gRPC, queue, DB
+6. **Docker & Env**: Multi-stage build, env.example đầy đủ biến môi trường
+7. **Provider Abstraction**: Giao diện provider, implement SendGrid, SES, SMTP, dễ mở rộng
+8. **Deployment & Observability**: Log chuẩn, metrics, healthcheck, Docker ready
+
+**Lưu ý:**
+
+- Đối chiếu checklist này để đảm bảo service đã production-ready.
+- Tham khảo chi tiết từng bước ở trên hoặc trong README.

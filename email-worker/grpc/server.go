@@ -11,9 +11,9 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"booking-system/email-worker/config"
-	"booking-system/email-worker/models"
+	"booking-system/email-worker/database/models"
+	"booking-system/email-worker/internal/protos"
 	"booking-system/email-worker/processor"
-	"booking-system/email-worker/protos"
 )
 
 // Server represents the gRPC server
@@ -69,9 +69,8 @@ func (s *Server) Stop() {
 // CreateEmailJob implements the CreateEmailJob gRPC method
 func (s *Server) CreateEmailJob(ctx context.Context, req *protos.CreateEmailJobRequest) (*protos.CreateEmailJobResponse, error) {
 	s.logger.Info("Creating email job",
-		zap.String("job_type", req.JobType),
-		zap.String("recipient", req.RecipientEmail),
-		zap.Bool("is_tracked", req.IsTracked),
+		zap.String("template_name", req.TemplateName),
+		zap.Strings("recipients", req.To),
 	)
 
 	// Create email job
@@ -88,110 +87,47 @@ func (s *Server) CreateEmailJob(ctx context.Context, req *protos.CreateEmailJobR
 	}
 
 	return &protos.CreateEmailJobResponse{
-		JobId:     job.ID.String(),
-		Success:   true,
-		Message:   "Email job created successfully",
-		IsTracked: job.IsTracked,
+		Job: &protos.EmailJob{
+			Id: job.ID,
+		},
+		Success: true,
+		Message: "Email job created successfully",
 	}, nil
 }
 
-// CreateTrackedEmailJob implements the CreateTrackedEmailJob gRPC method
-func (s *Server) CreateTrackedEmailJob(ctx context.Context, req *protos.CreateEmailJobRequest) (*protos.CreateEmailJobResponse, error) {
-	s.logger.Info("Creating tracked email job",
-		zap.String("job_type", req.JobType),
-		zap.String("recipient", req.RecipientEmail),
-	)
-
-	// Create email job (will be tracked)
-	job := s.createEmailJobFromRequest(req)
-	job.IsTracked = true
-
-	// Publish to queue
-	err := s.processor.PublishJob(ctx, job)
-	if err != nil {
-		s.logger.Error("Failed to publish tracked email job", zap.Error(err))
-		return &protos.CreateEmailJobResponse{
-			Success: false,
-			Message: fmt.Sprintf("Failed to create tracked email job: %v", err),
-		}, nil
-	}
-
-	return &protos.CreateEmailJobResponse{
-		JobId:     job.ID.String(),
-		Success:   true,
-		Message:   "Tracked email job created successfully",
-		IsTracked: true,
-	}, nil
-}
-
-// GetJobStatus implements the GetJobStatus gRPC method
-func (s *Server) GetJobStatus(ctx context.Context, req *protos.GetJobStatusRequest) (*protos.GetJobStatusResponse, error) {
+// GetEmailJob implements the GetEmailJob gRPC method
+func (s *Server) GetEmailJob(ctx context.Context, req *protos.GetEmailJobRequest) (*protos.GetEmailJobResponse, error) {
 	// This would need to be implemented to query the database
 	// For now, return a placeholder response
-	return &protos.GetJobStatusResponse{
-		JobId:  req.JobId,
-		Status: protos.JobStatus_STATUS_PENDING,
+	return &protos.GetEmailJobResponse{
 		Success: true,
-		Message: "Job status retrieved successfully",
+		Message: "Email job retrieved successfully",
+		Job: &protos.EmailJob{
+			Id:     fmt.Sprintf("%d", req.JobId),
+			Status: protos.JobStatus_STATUS_PENDING,
+		},
 	}, nil
 }
 
-// GetJobStats implements the GetJobStats gRPC method
-func (s *Server) GetJobStats(ctx context.Context, req *protos.GetJobStatsRequest) (*protos.GetJobStatsResponse, error) {
-	stats := s.processor.GetStats()
-
-	return &protos.GetJobStatsResponse{
-		TotalJobs:             stats.TotalJobsProcessed,
-		CompletedJobs:         stats.SuccessfulJobs,
-		FailedJobs:            stats.FailedJobs,
-		PendingJobs:           stats.QueueSize, // Using queue size as pending
-		RetriedJobs:           stats.RetriedJobs,
-		SuccessRate:           float64(stats.SuccessfulJobs) / float64(stats.TotalJobsProcessed) * 100,
-		AverageProcessingTime: float64(stats.AverageProcessingTime.Milliseconds()),
-		Success:               true,
-		Message:               "Job statistics retrieved successfully",
+// UpdateEmailJobStatus implements the UpdateEmailJobStatus gRPC method
+func (s *Server) UpdateEmailJobStatus(ctx context.Context, req *protos.UpdateEmailJobStatusRequest) (*protos.UpdateEmailJobStatusResponse, error) {
+	// This would need to be implemented to update job status
+	return &protos.UpdateEmailJobStatusResponse{
+		Success: true,
+		Message: "Email job status updated successfully",
 	}, nil
 }
 
-// HealthCheck implements the HealthCheck gRPC method
-func (s *Server) HealthCheck(ctx context.Context, req *protos.HealthCheckRequest) (*protos.HealthCheckResponse, error) {
-	// Check processor health
-	err := s.processor.Health(ctx)
-	if err != nil {
-		return &protos.HealthCheckResponse{
-			Status:  "unhealthy",
-			Message: fmt.Sprintf("Health check failed: %v", err),
-		}, nil
-	}
-
-	return &protos.HealthCheckResponse{
-		Status:    "healthy",
-		Version:   "1.0.0",
-		Timestamp: time.Now().Unix(),
-		Message:   "Service is healthy",
-	}, nil
-}
-
-// GetQueueStats implements the GetQueueStats gRPC method
-func (s *Server) GetQueueStats(ctx context.Context, req *protos.GetQueueStatsRequest) (*protos.GetQueueStatsResponse, error) {
-	stats := s.processor.GetStats()
-
-	return &protos.GetQueueStatsResponse{
-		QueueSize:           stats.QueueSize,
-		ScheduledQueueSize:  0, // Would need to be implemented
-		ActiveWorkers:       int32(stats.ActiveWorkers),
-		Success:             true,
-		Message:             "Queue statistics retrieved successfully",
-	}, nil
-}
-
-// CreateEmailTemplate implements the CreateEmailTemplate gRPC method
-func (s *Server) CreateEmailTemplate(ctx context.Context, req *protos.CreateEmailTemplateRequest) (*protos.CreateEmailTemplateResponse, error) {
-	// This would need to be implemented to create templates
-	return &protos.CreateEmailTemplateResponse{
-		TemplateId: req.Id,
-		Success:    true,
-		Message:    "Email template created successfully",
+// ListEmailJobs implements the ListEmailJobs gRPC method
+func (s *Server) ListEmailJobs(ctx context.Context, req *protos.ListEmailJobsRequest) (*protos.ListEmailJobsResponse, error) {
+	// This would need to be implemented to list jobs
+	return &protos.ListEmailJobsResponse{
+		Success: true,
+		Message: "Email jobs listed successfully",
+		Jobs:    []*protos.EmailJob{},
+		Total:   0,
+		Page:    req.Page,
+		Limit:   req.Limit,
 	}, nil
 }
 
@@ -201,6 +137,33 @@ func (s *Server) GetEmailTemplate(ctx context.Context, req *protos.GetEmailTempl
 	return &protos.GetEmailTemplateResponse{
 		Success: true,
 		Message: "Email template retrieved successfully",
+		Template: &protos.EmailTemplate{
+			Id:   req.TemplateId,
+			Name: req.Name,
+		},
+	}, nil
+}
+
+// ListEmailTemplates implements the ListEmailTemplates gRPC method
+func (s *Server) ListEmailTemplates(ctx context.Context, req *protos.ListEmailTemplatesRequest) (*protos.ListEmailTemplatesResponse, error) {
+	// This would need to be implemented to list templates
+	return &protos.ListEmailTemplatesResponse{
+		Success:   true,
+		Message:   "Email templates listed successfully",
+		Templates: []*protos.EmailTemplate{},
+		Total:     0,
+	}, nil
+}
+
+// CreateEmailTemplate implements the CreateEmailTemplate gRPC method
+func (s *Server) CreateEmailTemplate(ctx context.Context, req *protos.CreateEmailTemplateRequest) (*protos.CreateEmailTemplateResponse, error) {
+	// This would need to be implemented to create templates
+	return &protos.CreateEmailTemplateResponse{
+		Success: true,
+		Message: "Email template created successfully",
+		Template: &protos.EmailTemplate{
+			Name: req.Name,
+		},
 	}, nil
 }
 
@@ -208,54 +171,81 @@ func (s *Server) GetEmailTemplate(ctx context.Context, req *protos.GetEmailTempl
 func (s *Server) UpdateEmailTemplate(ctx context.Context, req *protos.UpdateEmailTemplateRequest) (*protos.UpdateEmailTemplateResponse, error) {
 	// This would need to be implemented to update templates
 	return &protos.UpdateEmailTemplateResponse{
-		TemplateId: req.Id,
-		Success:    true,
-		Message:    "Email template updated successfully",
-	}, nil
-}
-
-// DeleteEmailTemplate implements the DeleteEmailTemplate gRPC method
-func (s *Server) DeleteEmailTemplate(ctx context.Context, req *protos.DeleteEmailTemplateRequest) (*protos.DeleteEmailTemplateResponse, error) {
-	// This would need to be implemented to delete templates
-	return &protos.DeleteEmailTemplateResponse{
 		Success: true,
-		Message: "Email template deleted successfully",
+		Message: "Email template updated successfully",
 	}, nil
 }
 
-// createEmailJobFromRequest creates an EmailJob from gRPC request
+// GetEmailTracking implements the GetEmailTracking gRPC method
+func (s *Server) GetEmailTracking(ctx context.Context, req *protos.GetEmailTrackingRequest) (*protos.GetEmailTrackingResponse, error) {
+	// This would need to be implemented to get tracking info
+	return &protos.GetEmailTrackingResponse{
+		Success: true,
+		Message: "Email tracking retrieved successfully",
+	}, nil
+}
+
+// UpdateEmailTracking implements the UpdateEmailTracking gRPC method
+func (s *Server) UpdateEmailTracking(ctx context.Context, req *protos.UpdateEmailTrackingRequest) (*protos.UpdateEmailTrackingResponse, error) {
+	// This would need to be implemented to update tracking info
+	return &protos.UpdateEmailTrackingResponse{
+		Success: true,
+		Message: "Email tracking updated successfully",
+	}, nil
+}
+
+// Health implements the Health gRPC method
+func (s *Server) Health(ctx context.Context, req *protos.HealthRequest) (*protos.HealthResponse, error) {
+	// Check processor health
+	err := s.processor.Health(ctx)
+	if err != nil {
+		return &protos.HealthResponse{
+			Status:    "unhealthy",
+			Version:   "1.0.0",
+			Timestamp: time.Now().Format(time.RFC3339),
+		}, nil
+	}
+
+	return &protos.HealthResponse{
+		Status:    "healthy",
+		Version:   "1.0.0",
+		Timestamp: time.Now().Format(time.RFC3339),
+	}, nil
+}
+
+// createEmailJobFromRequest creates an EmailJob from a gRPC request
 func (s *Server) createEmailJobFromRequest(req *protos.CreateEmailJobRequest) *models.EmailJob {
-	job := models.NewEmailJob(req.JobType, req.RecipientEmail)
-
-	if req.Subject != "" {
-		job.SetSubject(req.Subject)
+	// Convert protobuf priority to model priority
+	var priority models.JobPriority
+	switch req.Priority {
+	case protos.JobPriority_PRIORITY_HIGH:
+		priority = models.JobPriorityHigh
+	case protos.JobPriority_PRIORITY_LOW:
+		priority = models.JobPriorityLow
+	default:
+		priority = models.JobPriorityNormal
 	}
 
-	if req.TemplateId != "" {
-		// Convert template data
-		templateData := make(map[string]any)
-		for k, v := range req.TemplateData {
-			templateData[k] = v
-		}
-		job.SetTemplate(req.TemplateId, templateData)
+	// Convert variables from map[string]string to map[string]interface{}
+	variables := make(map[string]interface{})
+	for k, v := range req.Variables {
+		variables[k] = v
 	}
 
-	// Set priority
-	job.SetPriority(int(req.Priority))
+	// Create email job
+	job := models.NewEmailJob(
+		req.To,
+		req.Cc,
+		req.Bcc,
+		req.TemplateName,
+		variables,
+		priority,
+	)
 
-	// Set max retries
+	// Set max retries if provided
 	if req.MaxRetries > 0 {
-		job.SetMaxRetries(int(req.MaxRetries))
+		job.MaxRetries = int(req.MaxRetries)
 	}
-
-	// Set scheduled time
-	if req.ScheduledAt != nil {
-		scheduledTime := req.ScheduledAt.AsTime()
-		job.SetScheduledAt(scheduledTime)
-	}
-
-	// Set tracking
-	job.IsTracked = req.IsTracked
 
 	return job
 } 

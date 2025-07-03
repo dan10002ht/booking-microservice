@@ -60,8 +60,15 @@ func (p *SendGridProvider) Name() string {
 func (p *SendGridProvider) Send(ctx context.Context, req *EmailRequest) (*EmailResponse, error) {
 	// Create email message
 	from := mail.NewEmail(p.fromName, p.from)
-	to := mail.NewEmail("", req.To)
 	
+	// Handle multiple recipients
+	if len(req.To) == 0 {
+		return nil, fmt.Errorf("%w: no recipients specified", ErrSendFailed)
+	}
+	
+	// For simplicity, send to first recipient only
+	// In production, you might want to implement batch sending
+	to := mail.NewEmail("", req.To[0])
 	message := mail.NewSingleEmail(from, req.Subject, to, req.TextContent, req.HTMLContent)
 
 	// Add reply-to if specified
@@ -80,7 +87,7 @@ func (p *SendGridProvider) Send(ctx context.Context, req *EmailRequest) (*EmailR
 	if len(req.Attachments) > 0 {
 		for _, attachment := range req.Attachments {
 			mailAttachment := mail.NewAttachment()
-			mailAttachment.SetContent(attachment.Content)
+			mailAttachment.SetContent(string(attachment.Content))
 			mailAttachment.SetType(attachment.ContentType)
 			mailAttachment.SetFilename(attachment.Filename)
 			mailAttachment.SetDisposition("attachment")

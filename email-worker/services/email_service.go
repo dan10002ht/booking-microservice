@@ -13,145 +13,129 @@ import (
 
 // EmailService handles email operations
 type EmailService struct {
-	jobRepo        *repositories.EmailJobRepository
-	templateRepo   *repositories.EmailTemplateRepository
-	provider       providers.Provider
-	renderer       *templates.TemplateRenderer
-	config         map[string]interface{}
+	jobRepo       *repositories.EmailJobRepository
+	templateRepo  *repositories.EmailTemplateRepository
+	emailProvider providers.EmailProvider
+	templateEngine *templates.Engine
 }
 
 // NewEmailService creates a new email service
 func NewEmailService(
 	jobRepo *repositories.EmailJobRepository,
 	templateRepo *repositories.EmailTemplateRepository,
-	provider providers.Provider,
-	config map[string]interface{},
+	emailProvider providers.EmailProvider,
+	templateEngine *templates.Engine,
 ) *EmailService {
 	return &EmailService{
-		jobRepo:      jobRepo,
-		templateRepo: templateRepo,
-		provider:     provider,
-		renderer:     templates.NewTemplateRenderer(),
-		config:       config,
+		jobRepo:        jobRepo,
+		templateRepo:   templateRepo,
+		emailProvider:  emailProvider,
+		templateEngine: templateEngine,
 	}
 }
 
-// CreateEmailJob creates a new email job
-func (s *EmailService) CreateEmailJob(ctx context.Context, job *models.EmailJob) error {
-	// Validate job
-	if err := s.validateJob(job); err != nil {
-		return fmt.Errorf("invalid job: %w", err)
+// SendEmail sends an email using the provided template and data
+func (s *EmailService) SendEmail(ctx context.Context, request *SendEmailRequest) (*models.EmailJob, error) {
+	// Validate request
+	if err := request.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid request: %w", err)
 	}
 
-	// Set default values
-	if job.Status == "" {
-		job.Status = models.JobStatusPending
+	// Get template
+	template, err := s.templateRepo.GetByName(ctx, request.TemplateName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get template: %w", err)
 	}
 
-	if job.Priority == 0 {
-		job.Priority = models.PriorityNormal
+	if !template.IsActive {
+		return nil, fmt.Errorf("template %s is not active", request.TemplateName)
 	}
 
-	if job.MaxRetries == 0 {
-		job.MaxRetries = 3
-	}
+	// Create email job
+	job := models.NewEmailJob(
+		request.To,
+		request.CC,
+		request.BCC,
+		request.TemplateName,
+		request.Variables,
+		request.Priority,
+	)
 
-	// Create job in database
+	// Save job to database
 	if err := s.jobRepo.Create(ctx, job); err != nil {
-		return fmt.Errorf("failed to create email job: %w", err)
+		return nil, fmt.Errorf("failed to create email job: %w", err)
 	}
 
-	return nil
+	return job, nil
 }
 
-// ProcessEmailJob processes a single email job
-func (s *EmailService) ProcessEmailJob(ctx context.Context, job *models.EmailJob) error {
-	// Update status to processing
-	if err := s.jobRepo.UpdateStatus(ctx, job.ID, models.JobStatusProcessing, "", nil); err != nil {
+// ProcessJob processes a single email job
+func (s *EmailService) ProcessJob(ctx context.Context, job *models.EmailJob) error {
+	// Update job status to processing
+	job.Status = models.JobStatusProcessing
+	job.ProcessedAt = &time.Time{}
+	*job.ProcessedAt = time.Now()
+
+	if err := s.jobRepo.Update(ctx, job); err != nil {
 		return fmt.Errorf("failed to update job status: %w", err)
 	}
 
 	// Get template
-	template, err := s.templateRepo.GetByName(ctx, job.TemplateID)
+	template, err := s.templateRepo.GetByName(ctx, job.TemplateName)
 	if err != nil {
-		errorMsg := fmt.Sprintf("template not found: %s", job.TemplateID)
-		s.jobRepo.UpdateStatus(ctx, job.ID, models.JobStatusFailed, errorMsg, nil)
+		job.Status = models.JobStatusFailed
+		job.ErrorMessage = fmt.Sprintf("Template not found: %v", err)
+		s.jobRepo.Update(ctx, job)
 		return fmt.Errorf("failed to get template: %w", err)
 	}
 
-	// Parse template data
-	templateData, err := s.renderer.ParseTemplateData(job.TemplateData)
+	// Render template
+	subject, htmlBody, textBody, err := s.templateEngine.Render(template, job.Variables)
 	if err != nil {
-		errorMsg := fmt.Sprintf("invalid template data: %v", err)
-		s.jobRepo.UpdateStatus(ctx, job.ID, models.JobStatusFailed, errorMsg, nil)
-		return fmt.Errorf("failed to parse template data: %w", err)
-	}
-
-	// Render email content
-	subject, err := s.renderer.RenderSubject(template.Subject, templateData)
-	if err != nil {
-		errorMsg := fmt.Sprintf("failed to render subject: %v", err)
-		s.jobRepo.UpdateStatus(ctx, job.ID, models.JobStatusFailed, errorMsg, nil)
-		return fmt.Errorf("failed to render subject: %w", err)
-	}
-
-	var htmlContent, textContent string
-	if template.HTMLContent != "" {
-		htmlContent, err = s.renderer.RenderHTML(template.HTMLContent, templateData)
-		if err != nil {
-			errorMsg := fmt.Sprintf("failed to render HTML: %v", err)
-			s.jobRepo.UpdateStatus(ctx, job.ID, models.JobStatusFailed, errorMsg, nil)
-			return fmt.Errorf("failed to render HTML: %w", err)
-		}
-	}
-
-	if template.TextContent != "" {
-		textContent, err = s.renderer.RenderText(template.TextContent, templateData)
-		if err != nil {
-			errorMsg := fmt.Sprintf("failed to render text: %v", err)
-			s.jobRepo.UpdateStatus(ctx, job.ID, models.JobStatusFailed, errorMsg, nil)
-			return fmt.Errorf("failed to render text: %w", err)
-		}
-	}
-
-	// Create email request
-	emailReq := &providers.EmailRequest{
-		To:          job.Email,
-		Subject:     subject,
-		HTMLContent: htmlContent,
-		TextContent: textContent,
-		From:        s.getFromEmail(),
-		FromName:    s.getFromName(),
+		job.Status = models.JobStatusFailed
+		job.ErrorMessage = fmt.Sprintf("Template rendering failed: %v", err)
+		s.jobRepo.Update(ctx, job)
+		return fmt.Errorf("failed to render template: %w", err)
 	}
 
 	// Send email
-	_, err = s.provider.Send(ctx, emailReq)
-	if err != nil {
-		// Increment retry count
-		s.jobRepo.IncrementRetryCount(ctx, job.ID)
+	err = s.emailProvider.SendEmail(ctx, &providers.EmailRequest{
+		To:      job.To,
+		CC:      job.CC,
+		BCC:     job.BCC,
+		Subject: subject,
+		HTMLBody: htmlBody,
+		TextBody: textBody,
+	})
 
-		// Check if we should retry
-		if job.RetryCount < job.MaxRetries {
-			// Mark as failed but keep for retry
-			s.jobRepo.UpdateStatus(ctx, job.ID, models.JobStatusFailed, err.Error(), nil)
-			return fmt.Errorf("failed to send email (will retry): %w", err)
-		} else {
-			// Max retries reached
-			s.jobRepo.UpdateStatus(ctx, job.ID, models.JobStatusFailed, err.Error(), nil)
-			return fmt.Errorf("failed to send email (max retries reached): %w", err)
-		}
+	if err != nil {
+		job.Status = models.JobStatusFailed
+		job.ErrorMessage = fmt.Sprintf("Email sending failed: %v", err)
+		job.RetryCount++
+		s.jobRepo.Update(ctx, job)
+		return fmt.Errorf("failed to send email: %w", err)
 	}
 
-	// Update job status to sent
-	sentAt := time.Now()
-	if err := s.jobRepo.UpdateStatus(ctx, job.ID, models.JobStatusSent, "", &sentAt); err != nil {
+	// Update job status to completed
+	job.Status = models.JobStatusCompleted
+	job.SentAt = &time.Time{}
+	*job.SentAt = time.Now()
+
+	if err := s.jobRepo.Update(ctx, job); err != nil {
 		return fmt.Errorf("failed to update job status: %w", err)
 	}
 
-	// TODO: Create email tracking record
-	// s.createEmailTracking(ctx, job.ID, response)
-
 	return nil
+}
+
+// GetJob retrieves an email job by ID
+func (s *EmailService) GetJob(ctx context.Context, id string) (*models.EmailJob, error) {
+	return s.jobRepo.GetByID(ctx, id)
+}
+
+// ListJobs retrieves email jobs with pagination
+func (s *EmailService) ListJobs(ctx context.Context, limit, offset int) ([]*models.EmailJob, error) {
+	return s.jobRepo.List(ctx, limit, offset)
 }
 
 // GetPendingJobs retrieves pending jobs for processing
@@ -159,14 +143,14 @@ func (s *EmailService) GetPendingJobs(ctx context.Context, limit int) ([]*models
 	return s.jobRepo.GetPendingJobs(ctx, limit)
 }
 
-// GetFailedJobs retrieves failed jobs for retry
+// GetFailedJobs retrieves failed jobs
 func (s *EmailService) GetFailedJobs(ctx context.Context, limit int) ([]*models.EmailJob, error) {
 	return s.jobRepo.GetFailedJobs(ctx, limit)
 }
 
-// RetryFailedJob retries a failed job
-func (s *EmailService) RetryFailedJob(ctx context.Context, jobID int64) error {
-	job, err := s.jobRepo.GetByID(ctx, jobID)
+// RetryJob retries a failed job
+func (s *EmailService) RetryJob(ctx context.Context, id string) error {
+	job, err := s.jobRepo.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("failed to get job: %w", err)
 	}
@@ -175,86 +159,69 @@ func (s *EmailService) RetryFailedJob(ctx context.Context, jobID int64) error {
 		return fmt.Errorf("job is not in failed status")
 	}
 
-	if job.RetryCount >= job.MaxRetries {
-		return fmt.Errorf("max retries reached for job")
-	}
+	// Reset job for retry
+	job.Status = models.JobStatusPending
+	job.ErrorMessage = ""
+	job.ProcessedAt = nil
+	job.SentAt = nil
 
-	// Reset status to pending for retry
-	if err := s.jobRepo.UpdateStatus(ctx, job.ID, models.JobStatusPending, "", nil); err != nil {
-		return fmt.Errorf("failed to reset job status: %w", err)
-	}
-
-	return nil
-}
-
-// GetJobByID retrieves a job by ID
-func (s *EmailService) GetJobByID(ctx context.Context, jobID int64) (*models.EmailJob, error) {
-	return s.jobRepo.GetByID(ctx, jobID)
-}
-
-// GetJobsByUser retrieves jobs for a specific user
-func (s *EmailService) GetJobsByUser(ctx context.Context, userID string, limit int) ([]*models.EmailJob, error) {
-	return s.jobRepo.GetJobsByUser(ctx, userID, limit)
-}
-
-// validateJob validates an email job
-func (s *EmailService) validateJob(job *models.EmailJob) error {
-	if job.Email == "" {
-		return fmt.Errorf("email is required")
-	}
-
-	if job.TemplateID == "" {
-		return fmt.Errorf("template ID is required")
-	}
-
-	if job.JobType == "" {
-		return fmt.Errorf("job type is required")
-	}
-
-	// Validate job type
-	validTypes := []string{
-		models.JobTypeVerification,
-		models.JobTypePasswordReset,
-		models.JobTypeWelcome,
-		models.JobTypeSecurity,
-		models.JobTypeInvitation,
-		models.JobTypeNotification,
-	}
-
-	valid := false
-	for _, validType := range validTypes {
-		if job.JobType == validType {
-			valid = true
-			break
-		}
-	}
-
-	if !valid {
-		return fmt.Errorf("invalid job type: %s", job.JobType)
+	if err := s.jobRepo.Update(ctx, job); err != nil {
+		return fmt.Errorf("failed to update job: %w", err)
 	}
 
 	return nil
 }
 
-// getFromEmail gets the from email from config
-func (s *EmailService) getFromEmail() string {
-	if from, ok := s.config["from"].(string); ok && from != "" {
-		return from
+// CreateTemplate creates a new email template
+func (s *EmailService) CreateTemplate(ctx context.Context, template *models.EmailTemplate) error {
+	if err := template.Validate(); err != nil {
+		return fmt.Errorf("invalid template: %w", err)
 	}
-	return "noreply@bookingsystem.com"
+
+	return s.templateRepo.Create(ctx, template)
 }
 
-// getFromName gets the from name from config
-func (s *EmailService) getFromName() string {
-	if fromName, ok := s.config["from_name"].(string); ok && fromName != "" {
-		return fromName
-	}
-	return "Booking System"
+// GetTemplate retrieves a template by ID
+func (s *EmailService) GetTemplate(ctx context.Context, id string) (*models.EmailTemplate, error) {
+	return s.templateRepo.GetByID(ctx, id)
 }
 
-// createEmailTracking creates an email tracking record
-func (s *EmailService) createEmailTracking(ctx context.Context, jobID int64, response *providers.EmailResponse) error {
-	// TODO: Implement email tracking
-	// This would create a record in the email_tracking table
+// UpdateTemplate updates an email template
+func (s *EmailService) UpdateTemplate(ctx context.Context, template *models.EmailTemplate) error {
+	if err := template.Validate(); err != nil {
+		return fmt.Errorf("invalid template: %w", err)
+	}
+
+	return s.templateRepo.Update(ctx, template)
+}
+
+// DeleteTemplate deletes an email template
+func (s *EmailService) DeleteTemplate(ctx context.Context, id string) error {
+	return s.templateRepo.Delete(ctx, id)
+}
+
+// ListTemplates retrieves templates with pagination
+func (s *EmailService) ListTemplates(ctx context.Context, limit, offset int) ([]*models.EmailTemplate, error) {
+	return s.templateRepo.List(ctx, limit, offset)
+}
+
+// SendEmailRequest represents a request to send an email
+type SendEmailRequest struct {
+	To           []string               `json:"to"`
+	CC           []string               `json:"cc,omitempty"`
+	BCC          []string               `json:"bcc,omitempty"`
+	TemplateName string                 `json:"template_name"`
+	Variables    map[string]interface{} `json:"variables"`
+	Priority     models.JobPriority     `json:"priority"`
+}
+
+// Validate validates the send email request
+func (r *SendEmailRequest) Validate() error {
+	if len(r.To) == 0 {
+		return fmt.Errorf("at least one recipient is required")
+	}
+	if r.TemplateName == "" {
+		return fmt.Errorf("template name is required")
+	}
 	return nil
 } 

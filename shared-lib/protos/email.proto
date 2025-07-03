@@ -25,16 +25,13 @@ service EmailService {
 
 // Email Job Management
 message CreateEmailJobRequest {
-  string job_type = 1; // "verification", "password_reset", "welcome", "security", "invitation"
-  int32 priority = 2; // 1=high, 2=normal, 3=low
-  string user_id = 3; // UUID from auth-service
-  string email = 4;
-  string subject = 5;
-  string template_id = 6;
-  string template_data = 7; // JSON string
-  string provider = 8; // "sendgrid", "ses", "smtp"
-  int32 max_retries = 9;
-  string scheduled_at = 10; // ISO 8601 timestamp
+  repeated string to = 1;
+  repeated string cc = 2;
+  repeated string bcc = 3;
+  string template_name = 4;
+  map<string, string> variables = 5;
+  JobPriority priority = 6;
+  int32 max_retries = 7;
 }
 
 message CreateEmailJobResponse {
@@ -181,32 +178,30 @@ message HealthResponse {
 
 // Data structures
 message EmailJob {
-  int64 id = 1;
-  string job_type = 2;
-  int32 priority = 3;
-  string status = 4;
-  string user_id = 5;
-  string email = 6;
-  string subject = 7;
-  string template_id = 8;
-  string template_data = 9;
-  string provider = 10;
-  int32 retry_count = 11;
-  int32 max_retries = 12;
-  string error_message = 13;
-  string sent_at = 14;
-  string scheduled_at = 15;
-  string created_at = 16;
-  string updated_at = 17;
+  string id = 1;
+  repeated string to = 2;
+  repeated string cc = 3;
+  repeated string bcc = 4;
+  string template_name = 5;
+  map<string, string> variables = 6;
+  JobStatus status = 7;
+  JobPriority priority = 8;
+  int32 retry_count = 9;
+  int32 max_retries = 10;
+  string error_message = 11;
+  string processed_at = 12;
+  string sent_at = 13;
+  string created_at = 14;
+  string updated_at = 15;
 }
 
 message EmailTemplate {
-  int64 id = 1;
+  string id = 1;
   string name = 2;
   string subject = 3;
-  string html_content = 4;
-  string text_content = 5;
-  string variables = 6;
+  string html_template = 4;
+  string text_template = 5;
+  map<string, string> variables = 6;
   bool is_active = 7;
   string created_at = 8;
   string updated_at = 9;
@@ -225,4 +220,21 @@ message EmailTracking {
   string bounce_reason = 10;
   string created_at = 11;
   string updated_at = 12;
+}
+
+// Enums
+enum JobStatus {
+  STATUS_UNKNOWN = 0;
+  STATUS_PENDING = 1;
+  STATUS_PROCESSING = 2;
+  STATUS_COMPLETED = 3;
+  STATUS_FAILED = 4;
+  STATUS_CANCELLED = 5;
+}
+
+enum JobPriority {
+  PRIORITY_UNKNOWN = 0;
+  PRIORITY_HIGH = 1;
+  PRIORITY_NORMAL = 2;
+  PRIORITY_LOW = 3;
 } 
