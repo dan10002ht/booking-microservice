@@ -2,6 +2,7 @@ import * as authService from '../services/internal/authService.js';
 import * as userManagementService from '../services/internal/userManagementService.js';
 import * as adminService from '../services/internal/adminService.js';
 import * as emailVerificationService from '../services/internal/emailVerificationService.js';
+import * as pinCodeVerificationService from '../services/internal/pinCodeVerificationService.js';
 import { sanitizePagination, sanitizeFilters } from '../utils/sanitizers.js';
 import { verifyRefreshToken } from '../utils/tokenUtils.js';
 import { integrationService } from '../services/integration/integrationService.js';
@@ -695,6 +696,104 @@ export async function health(call, callback) {
     });
   } catch (error) {
     console.error('Health check error:', error);
+    callback({
+      code: 13,
+      message: error.message,
+    });
+  }
+}
+
+// ========== PIN CODE VERIFICATION METHODS ==========
+
+/**
+ * Send verification email with PIN code
+ */
+export async function sendVerificationEmail(call, callback) {
+  try {
+    const { email } = call.request;
+
+    if (!email) {
+      return callback({
+        code: 3,
+        message: 'Email is required',
+      });
+    }
+
+    const result = await pinCodeVerificationService.sendVerificationEmailWithPin(email);
+
+    callback(null, {
+      success: true,
+      message: result.message,
+      user_id: result.userId,
+      user_email: result.userEmail,
+      pin_code: process.env.NODE_ENV === 'development' ? result.pinCode : undefined,
+      expires_at: result.expiresAt,
+    });
+  } catch (error) {
+    console.error('Send verification email error:', error);
+    callback({
+      code: 13,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Verify email with PIN code
+ */
+export async function verifyEmailWithPin(call, callback) {
+  try {
+    const { user_id, pin_code } = call.request;
+
+    if (!user_id || !pin_code) {
+      return callback({
+        code: 3,
+        message: 'User ID and PIN code are required',
+      });
+    }
+
+    const result = await pinCodeVerificationService.verifyEmailWithPin(user_id, pin_code);
+
+    callback(null, {
+      success: true,
+      message: result.message,
+      user: result.user,
+    });
+  } catch (error) {
+    console.error('Verify email error:', error);
+    callback({
+      code: 13,
+      message: error.message,
+    });
+  }
+}
+
+/**
+ * Resend verification email with new PIN code
+ */
+export async function resendVerificationEmail(call, callback) {
+  try {
+    const { email } = call.request;
+
+    if (!email) {
+      return callback({
+        code: 3,
+        message: 'Email is required',
+      });
+    }
+
+    const result = await pinCodeVerificationService.resendVerificationEmail(email);
+
+    callback(null, {
+      success: true,
+      message: result.message,
+      user_id: result.userId,
+      user_email: result.userEmail,
+      pin_code: process.env.NODE_ENV === 'development' ? result.pinCode : undefined,
+      expires_at: result.expiresAt,
+    });
+  } catch (error) {
+    console.error('Resend verification email error:', error);
     callback({
       code: 13,
       message: error.message,

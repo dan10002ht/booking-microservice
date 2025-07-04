@@ -11,8 +11,8 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"booking-system/email-worker/config"
-	"booking-system/email-worker/database/models"
 	"booking-system/email-worker/internal/protos"
+	"booking-system/email-worker/models"
 	"booking-system/email-worker/processor"
 )
 
@@ -88,7 +88,7 @@ func (s *Server) CreateEmailJob(ctx context.Context, req *protos.CreateEmailJobR
 
 	return &protos.CreateEmailJobResponse{
 		Job: &protos.EmailJob{
-			Id: job.ID,
+			Id: job.ID.String(),
 		},
 		Success: true,
 		Message: "Email job created successfully",

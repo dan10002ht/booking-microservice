@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"booking-system/email-worker/database"
-	"booking-system/email-worker/database/models"
+	"booking-system/email-worker/models"
 )
 
 // EmailJobRepository handles database operations for email jobs
@@ -32,8 +32,8 @@ func (r *EmailJobRepository) Create(ctx context.Context, job *models.EmailJob) e
 	`
 
 	err := r.db.QueryRowContext(ctx, query,
-		job.ID, job.To, job.CC, job.BCC, job.TemplateName,
-		job.Variables, job.Status, job.Priority, job.RetryCount,
+		job.ID.String(), job.To, job.CC, job.BCC, job.TemplateName,
+		job.Variables, string(job.Status), int(job.Priority), job.RetryCount,
 		job.MaxRetries, job.ErrorMessage,
 	).Scan(&job.CreatedAt, &job.UpdatedAt)
 
@@ -76,8 +76,8 @@ func (r *EmailJobRepository) Update(ctx context.Context, job *models.EmailJob) e
 	`
 
 	err := r.db.QueryRowContext(ctx, query,
-		job.ID, job.To, job.CC, job.BCC, job.TemplateName,
-		job.Variables, job.Status, job.Priority, job.RetryCount,
+		job.ID.String(), job.To, job.CC, job.BCC, job.TemplateName,
+		job.Variables, string(job.Status), int(job.Priority), job.RetryCount,
 		job.MaxRetries, job.ErrorMessage, job.ProcessedAt, job.SentAt,
 	).Scan(&job.UpdatedAt)
 

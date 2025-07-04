@@ -12,10 +12,10 @@ RUN apk add --no-cache \
     && rm -rf /var/cache/apk/*
 
 # Copy package files
-COPY package*.json ./
+COPY package*.json yarn.lock ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN yarn install --frozen-lockfile --production
 
 # Copy source code
 COPY . .
@@ -39,4 +39,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD node -e "const grpc = require('@grpc/grpc-js'); const client = new grpc.Client('localhost:50051', grpc.credentials.createInsecure()); client.waitForReady(Date.now() + 5000, (err) => { process.exit(err ? 1 : 0); });"
 
 # Start the service
-CMD ["npm", "start"] 
+CMD ["yarn", "start"] 

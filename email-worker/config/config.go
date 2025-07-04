@@ -53,9 +53,10 @@ type WorkerConfig struct {
 	CleanupInterval time.Duration `mapstructure:"cleanup_interval"`
 }
 
-// ServerConfig holds HTTP server configuration
+// ServerConfig holds server configuration
 type ServerConfig struct {
-	Port int `mapstructure:"port"`
+	Port     int `mapstructure:"port"`
+	GRPCPort int `mapstructure:"grpc_port"`
 }
 
 // EmailConfig holds email configuration
@@ -148,6 +149,10 @@ func setDefaults() {
 	viper.SetDefault("kafka.topic_email_jobs", "email-jobs")
 	viper.SetDefault("kafka.topic_email_events", "email-events")
 	viper.SetDefault("kafka.auto_offset_reset", "earliest")
+
+	// Server defaults
+	viper.SetDefault("server.port", 8080)
+	viper.SetDefault("server.grpc_port", 50060)
 
 	// gRPC defaults
 	viper.SetDefault("grpc.auth_service", "localhost:50051")

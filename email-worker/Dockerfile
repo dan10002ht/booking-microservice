@@ -40,8 +40,8 @@ RUN chown -R appuser:appgroup /root/
 # Switch to non-root user
 USER appuser
 
-# Expose port (if needed for health checks)
-EXPOSE 8080
+# Expose ports
+EXPOSE 8080 50060
 
 # Run the application
 CMD ["./email-worker"] 

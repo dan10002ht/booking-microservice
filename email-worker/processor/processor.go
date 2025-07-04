@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"booking-system/email-worker/database/models"
+	"booking-system/email-worker/models"
 	"booking-system/email-worker/queue"
 	"booking-system/email-worker/services"
 )
@@ -205,9 +205,9 @@ func (p *Processor) updateStats() {
 	p.statsMutex.Lock()
 	p.stats.QueueSize = queueSize
 	if dbStats != nil {
-		p.stats.TotalJobsProcessed = dbStats.TotalJobs
-		p.stats.SuccessfulJobs = dbStats.CompletedJobs
-		p.stats.FailedJobs = dbStats.FailedJobs
+		p.stats.TotalJobsProcessed = int64(dbStats.TotalJobs)
+		p.stats.SuccessfulJobs = int64(dbStats.CompletedJobs)
+		p.stats.FailedJobs = int64(dbStats.FailedJobs)
 	}
 	p.stats.ActiveWorkers = len(p.workers)
 	p.statsMutex.Unlock()
@@ -262,9 +262,9 @@ func (p *Processor) PublishJob(ctx context.Context, job *models.EmailJob) error 
 	}
 
 	p.logger.Info("Job published to queue",
-		zap.String("job_id", job.ID),
-		zap.String("template_name", job.TemplateName),
-		zap.Strings("recipients", []string(job.To)),
+		zap.String("job_id", job.ID.String()),
+		zap.String("template", job.TemplateName),
+		zap.Strings("recipients", job.To),
 	)
 
 	return nil
@@ -272,16 +272,8 @@ func (p *Processor) PublishJob(ctx context.Context, job *models.EmailJob) error 
 
 // PublishScheduledJob publishes a job for scheduled delivery
 func (p *Processor) PublishScheduledJob(ctx context.Context, job *models.EmailJob, scheduledAt time.Time) error {
-	// If job should be tracked, save to database first
-	if job.ShouldBeTracked() {
-		job.IsTracked = true
-		err := p.emailService.CreateTrackedEmailJob(ctx, job)
-		if err != nil {
-			return fmt.Errorf("failed to create tracked scheduled job: %w", err)
-		}
-	}
-
-	// Publish to scheduled queue
+	// For now, just publish to scheduled queue
+	// TODO: Implement tracking logic when needed
 	err := p.queue.PublishScheduled(ctx, job, scheduledAt)
 	if err != nil {
 		return fmt.Errorf("failed to publish scheduled job: %w", err)
@@ -289,10 +281,8 @@ func (p *Processor) PublishScheduledJob(ctx context.Context, job *models.EmailJo
 
 	p.logger.Info("Scheduled job published to queue",
 		zap.String("job_id", job.ID.String()),
-		zap.String("job_type", job.JobType),
-		zap.String("recipient", job.RecipientEmail),
+		zap.Strings("recipients", job.To),
 		zap.Time("scheduled_at", scheduledAt),
-		zap.Bool("tracked", job.IsTracked),
 	)
 
 	return nil

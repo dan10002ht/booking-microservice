@@ -70,6 +70,11 @@ server.addService(authProto.AuthService.service, {
   searchUsers: authController.searchUsers,
   updateUserStatus: authController.updateUserStatus,
 
+  // Email Verification with PIN Code
+  sendVerificationEmail: authController.sendVerificationEmail,
+  verifyEmailWithPin: authController.verifyEmailWithPin,
+  resendVerificationEmail: authController.resendVerificationEmail,
+
   // Health Check
   health: authController.health,
 });

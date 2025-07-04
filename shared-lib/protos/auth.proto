@@ -28,6 +28,8 @@ service AuthService {
   // Email verification
   rpc SendVerificationEmail(SendVerificationEmailRequest) returns (SendVerificationEmailResponse);
   rpc VerifyEmail(VerifyEmailRequest) returns (VerifyEmailResponse);
+  rpc VerifyEmailWithPin(VerifyEmailWithPinRequest) returns (VerifyEmailWithPinResponse);
+  rpc ResendVerificationEmail(ResendVerificationEmailRequest) returns (ResendVerificationEmailResponse);
   
   // Health check
   rpc Health(HealthRequest) returns (HealthResponse);
@@ -238,7 +240,10 @@ message SendVerificationEmailRequest {
 message SendVerificationEmailResponse {
   bool success = 1;
   string message = 2;
-  string verification_token = 3;
+  string user_id = 3;
+  string user_email = 4;
+  string pin_code = 5; // Only in development mode
+  string expires_at = 6;
 }
 
 message VerifyEmailRequest {
@@ -248,6 +253,30 @@ message VerifyEmailRequest {
 message VerifyEmailResponse {
   bool success = 1;
   string message = 2;
+}
+
+message VerifyEmailWithPinRequest {
+  string user_id = 1;
+  string pin_code = 2;
+}
+
+message VerifyEmailWithPinResponse {
+  bool success = 1;
+  string message = 2;
+  User user = 3;
+}
+
+message ResendVerificationEmailRequest {
+  string email = 1;
+}
+
+message ResendVerificationEmailResponse {
+  bool success = 1;
+  string message = 2;
+  string user_id = 3;
+  string user_email = 4;
+  string pin_code = 5; // Only in development mode
+  string expires_at = 6;
 }
 
 // Health check

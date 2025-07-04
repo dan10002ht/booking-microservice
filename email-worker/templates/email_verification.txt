@@ -1,0 +1,25 @@
+Email Verification - Booking System
+
+Hello {{.UserName}},
+
+Thank you for registering with Booking System. To complete your registration, please verify your email address using the verification code below:
+
+Your verification code: {{.PinCode}}
+
+How to verify:
+- Enter this code in the verification form on our website
+- Or visit: {{.VerificationURL}}
+
+Important:
+- This code will expire in {{.ExpiryTime}} minutes
+- If you didn't request this verification, please ignore this email
+- Never share this code with anyone
+
+If you have any questions, please contact our support team.
+
+Best regards,
+Booking System Team
+
+---
+This email was sent to {{.UserEmail}} for email verification purposes.
+© 2024 Booking System. All rights reserved. 

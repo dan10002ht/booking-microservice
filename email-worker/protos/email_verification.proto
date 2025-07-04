@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package email_verification;
+
+option go_package = "booking-system/email-worker/protos";
+
+// Email Verification Service
+service EmailVerificationService {
+  // Send verification email with PIN code
+  rpc SendVerificationEmail(SendVerificationEmailRequest) returns (SendVerificationEmailResponse);
+  
+  // Send verification reminder email
+  rpc SendVerificationReminder(SendVerificationReminderRequest) returns (SendVerificationReminderResponse);
+  
+  // Validate PIN code
+  rpc ValidatePinCode(ValidatePinCodeRequest) returns (ValidatePinCodeResponse);
+  
+  // Resend verification email
+  rpc ResendVerificationEmail(ResendVerificationEmailRequest) returns (ResendVerificationEmailResponse);
+}
+
+// Send verification email request
+message SendVerificationEmailRequest {
+  string user_id = 1;
+  string user_email = 2;
+  string user_name = 3;
+  string pin_code = 4;  // Optional, will generate if not provided
+  int32 expiry_time = 5;  // in minutes, default 15
+  string verification_url = 6;
+}
+
+// Send verification email response
+message SendVerificationEmailResponse {
+  bool success = 1;
+  string message = 2;
+  string job_id = 3;
+  string pin_code = 4;  // Generated PIN code
+  int64 expiry_timestamp = 5;
+}
+
+// Send verification reminder request
+message SendVerificationReminderRequest {
+  string user_id = 1;
+  string user_email = 2;
+  string user_name = 3;
+  string verification_url = 4;
+}
+
+// Send verification reminder response
+message SendVerificationReminderResponse {
+  bool success = 1;
+  string message = 2;
+  string job_id = 3;
+  string pin_code = 4;  // New PIN code
+  int64 expiry_timestamp = 5;
+}
+
+// Validate PIN code request
+message ValidatePinCodeRequest {
+  string user_id = 1;
+  string pin_code = 2;
+  int64 expiry_timestamp = 3;
+}
+
+// Validate PIN code response
+message ValidatePinCodeResponse {
+  bool valid = 1;
+  string message = 2;
+  bool expired = 3;
+}
+
+// Resend verification email request
+message ResendVerificationEmailRequest {
+  string user_id = 1;
+  string user_email = 2;
+  string user_name = 3;
+  string verification_url = 4;
+}
+
+// Resend verification email response
+message ResendVerificationEmailResponse {
+  bool success = 1;
+  string message = 2;
+  string job_id = 3;
+  string pin_code = 4;  // New PIN code
+  int64 expiry_timestamp = 5;
+} 

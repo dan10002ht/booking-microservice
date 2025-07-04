@@ -82,11 +82,17 @@ func (p *SESProvider) Name() string {
 
 // Send sends an email via AWS SES
 func (p *SESProvider) Send(ctx context.Context, req *EmailRequest) (*EmailResponse, error) {
+	// Convert string slices to AWS string pointers
+	toAddresses := make([]*string, len(req.To))
+	for i, addr := range req.To {
+		toAddresses[i] = aws.String(addr)
+	}
+
 	// Create email input
 	input := &ses.SendEmailInput{
 		Source: aws.String(fmt.Sprintf("%s <%s>", p.fromName, p.from)),
 		Destination: &ses.Destination{
-			ToAddresses: []*string{aws.String(req.To)},
+			ToAddresses: toAddresses,
 		},
 		Message: &ses.Message{
 			Subject: &ses.Content{

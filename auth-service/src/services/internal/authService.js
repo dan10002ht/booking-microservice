@@ -18,6 +18,7 @@ import {
 import * as organizationManagementService from './organizationManagementService.js';
 import * as oauthService from './oauthService.js';
 import cacheService from './cacheService.js';
+import logger from '../../utils/logger.js';
 // import * as auditService from './auditService.js'; // TODO: Implement audit service
 
 // Get repository instances from factory
@@ -120,15 +121,36 @@ export async function registerWithEmail(registerData) {
       ip_address: ip_address,
     };
 
+    await createUserSessionAndRefreshToken(newUser.id, sessionData, refreshTokenData);
+
     // Song song hóa các thao tác cache/token/session
     await Promise.all([
       cacheService.cacheUserProfile(newUser.public_id, userProfile),
       cacheService.cacheUserRoles(newUser.public_id, userWithRoles.roles || []),
     ]);
 
-    await createUserSessionAndRefreshToken(newUser.id, sessionData, refreshTokenData);
-
     // Nếu có gửi email xác thực hoặc audit log thì nên fire-and-forget ở đây (chưa có)
+    try {
+      const backgroundService =
+        require('../../../background/backgroundService.js').getBackgroundService();
+      backgroundService
+        .enqueueJob(
+          'email_verification',
+          {
+            userId: newUser.id,
+            userEmail: newUser.email,
+            userName: newUser.first_name || newUser.email,
+          },
+          {
+            priority: 'high',
+            maxRetries: 3,
+            timeout: 30000,
+          }
+        )
+        .catch((err) => logger.warn('Enqueue job gửi email xác thực thất bại:', err));
+    } catch (err) {
+      logger.warn('Không thể enqueue job gửi email xác thực:', err);
+    }
 
     return {
       user: userProfile,

@@ -3,6 +3,7 @@ package providers
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"gopkg.in/gomail.v2"
@@ -85,7 +86,7 @@ func (p *SMTPProvider) Send(ctx context.Context, req *EmailRequest) (*EmailRespo
 	// Create email message
 	m := gomail.NewMessage()
 	m.SetHeader("From", fmt.Sprintf("%s <%s>", p.fromName, p.from))
-	m.SetHeader("To", req.To)
+	m.SetHeader("To", req.To...)
 	m.SetHeader("Subject", req.Subject)
 
 	// Set email body
@@ -113,7 +114,7 @@ func (p *SMTPProvider) Send(ctx context.Context, req *EmailRequest) (*EmailRespo
 	// Add attachments
 	if len(req.Attachments) > 0 {
 		for _, attachment := range req.Attachments {
-			m.Attach(attachment.Filename, gomail.SetCopyFunc(func(w gomail.Writer) error {
+			m.Attach(attachment.Filename, gomail.SetCopyFunc(func(w io.Writer) error {
 				_, err := w.Write(attachment.Content)
 				return err
 			}))

@@ -16,6 +16,7 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:grpc": "node test-grpc.js",
+    "test:pin-verification": "node test-pin-verification-grpc.js",
     "test:repositories": "node scripts/test-repositories.js",
     "docker:build": "docker build -t booking-system/auth-service .",
     "docker:run": "docker run -p 50051:50051 booking-system/auth-service",

@@ -249,6 +249,39 @@ services:
       - booking-net
     restart: unless-stopped
 
+  email-worker:
+    build:
+      context: ../email-worker
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "50060:50060"
+    environment:
+      - NODE_ENV=development
+      - PORT=8080
+      - GRPC_PORT=50060
+      - HOST=0.0.0.0
+      - DB_HOST=postgres-master
+      - DB_PORT=5432
+      - DB_NAME=booking_system_email
+      - DB_USER=booking_user
+      - DB_PASSWORD=booking_pass
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - KAFKA_BROKERS=kafka:9092
+      - EMAIL_PROVIDER=sendgrid
+      - EMAIL_API_KEY=your_sendgrid_api_key_here
+      - EMAIL_FROM=noreply@booking-system.com
+    depends_on:
+      - postgres-master
+      - redis
+      - kafka
+    volumes:
+      - ../email-worker:/app
+    networks:
+      - booking-net
+    restart: unless-stopped
+
 volumes:
   postgres_master_data:
   postgres_slave1_data:

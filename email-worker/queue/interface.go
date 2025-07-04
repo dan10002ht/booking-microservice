@@ -217,4 +217,9 @@ func (q *KafkaQueue) ProcessScheduledJobs(ctx context.Context) error {
 	return nil
 }
 
+// Queue errors
+var (
+	ErrQueueEmpty = fmt.Errorf("queue is empty")
+)
+
  

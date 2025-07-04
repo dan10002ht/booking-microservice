@@ -17,11 +17,11 @@ type Engine struct {
 func NewEngine() *Engine {
 	return &Engine{
 		funcMap: template.FuncMap{
-			"formatDate": func(format string, date interface{}) string {
+			"formatDate": func(format string, date any) string {
 				// TODO: Implement date formatting
 				return fmt.Sprintf("%v", date)
 			},
-			"formatCurrency": func(amount interface{}) string {
+			"formatCurrency": func(amount any) string {
 				// TODO: Implement currency formatting
 				return fmt.Sprintf("$%.2f", amount)
 			},
@@ -30,7 +30,7 @@ func NewEngine() *Engine {
 }
 
 // Render renders a template with the given variables
-func (e *Engine) Render(template *models.EmailTemplate, variables map[string]interface{}) (string, string, string, error) {
+func (e *Engine) Render(template *models.EmailTemplate, variables map[string]any) (string, string, string, error) {
 	// Render subject
 	subject, err := e.renderText(template.Subject, variables)
 	if err != nil {
@@ -59,7 +59,7 @@ func (e *Engine) Render(template *models.EmailTemplate, variables map[string]int
 }
 
 // renderHTML renders HTML template
-func (e *Engine) renderHTML(tmpl string, variables map[string]interface{}) (string, error) {
+func (e *Engine) renderHTML(tmpl string, variables map[string]any) (string, error) {
 	t, err := template.New("html").Funcs(e.funcMap).Parse(tmpl)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse HTML template: %w", err)
@@ -74,7 +74,7 @@ func (e *Engine) renderHTML(tmpl string, variables map[string]interface{}) (stri
 }
 
 // renderText renders text template
-func (e *Engine) renderText(tmpl string, variables map[string]interface{}) (string, error) {
+func (e *Engine) renderText(tmpl string, variables map[string]any) (string, error) {
 	t, err := template.New("text").Funcs(e.funcMap).Parse(tmpl)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse text template: %w", err)

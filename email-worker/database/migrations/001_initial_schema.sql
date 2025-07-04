@@ -8,19 +8,17 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- Email Jobs Table
 CREATE TABLE email_jobs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    job_type VARCHAR(50) NOT NULL,
-    recipient_email VARCHAR(255) NOT NULL,
-    subject VARCHAR(500),
-    template_id VARCHAR(100),
-    template_data JSONB,
+    to_emails TEXT[] NOT NULL, -- Array of recipient emails
+    cc_emails TEXT[], -- Array of CC emails
+    bcc_emails TEXT[], -- Array of BCC emails
+    template_name VARCHAR(255) NOT NULL,
+    variables JSONB, -- Template variables
     status VARCHAR(20) DEFAULT 'pending',
-    priority INTEGER DEFAULT 0,
+    priority INTEGER DEFAULT 2, -- 1=high, 2=normal, 3=low
     retry_count INTEGER DEFAULT 0,
     max_retries INTEGER DEFAULT 3,
-    scheduled_at TIMESTAMP,
-    user_id UUID, -- UUID from auth-service (optional)
-    provider VARCHAR(20) DEFAULT 'sendgrid', -- 'sendgrid', 'ses', 'smtp'
     error_message TEXT,
+    processed_at TIMESTAMP,
     sent_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -58,12 +56,11 @@ CREATE TABLE email_tracking (
 -- Indexes for better performance
 CREATE INDEX idx_email_jobs_status ON email_jobs(status);
 CREATE INDEX idx_email_jobs_priority ON email_jobs(priority);
-CREATE INDEX idx_email_jobs_scheduled_at ON email_jobs(scheduled_at);
 CREATE INDEX idx_email_jobs_created_at ON email_jobs(created_at);
-CREATE INDEX idx_email_jobs_recipient_email ON email_jobs(recipient_email);
-CREATE INDEX idx_email_jobs_template_id ON email_jobs(template_id);
-CREATE INDEX idx_email_jobs_user_id ON email_jobs(user_id);
-CREATE INDEX idx_email_jobs_job_type ON email_jobs(job_type);
+CREATE INDEX idx_email_jobs_template_name ON email_jobs(template_name);
+CREATE INDEX idx_email_jobs_to_emails ON email_jobs USING GIN(to_emails);
+CREATE INDEX idx_email_jobs_processed_at ON email_jobs(processed_at);
+CREATE INDEX idx_email_jobs_sent_at ON email_jobs(sent_at);
 
 CREATE INDEX idx_email_templates_is_active ON email_templates(is_active);
 CREATE INDEX idx_email_templates_name ON email_templates(name);
@@ -258,7 +255,7 @@ Booking System Team',
     '{"Name": "string", "OrganizationName": "string", "Role": "string", "InvitationURL": "string", "ExpiryDays": "number"}'
 );
 
--- Create updated_at trigger function
+-- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -267,6 +264,13 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Create triggers for updated_at
-CREATE TRIGGER update_email_jobs_updated_at BEFORE UPDATE ON email_jobs FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_email_templates_updated_at BEFORE UPDATE ON email_templates FOR EACH ROW EXECUTE FUNCTION update_updated_at_column(); 
+-- Triggers to automatically update updated_at
+CREATE TRIGGER update_email_jobs_updated_at 
+    BEFORE UPDATE ON email_jobs 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_email_templates_updated_at 
+    BEFORE UPDATE ON email_templates 
+    FOR EACH ROW 
+    EXECUTE FUNCTION update_updated_at_column(); 
