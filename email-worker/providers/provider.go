@@ -65,11 +65,11 @@ const (
 
 // ProviderFactory creates email providers
 type ProviderFactory struct {
-	config map[string]interface{}
+	config map[string]any
 }
 
 // NewProviderFactory creates a new provider factory
-func NewProviderFactory(config map[string]interface{}) *ProviderFactory {
+func NewProviderFactory(config map[string]any) *ProviderFactory {
 	return &ProviderFactory{config: config}
 }
 

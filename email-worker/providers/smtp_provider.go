@@ -32,7 +32,7 @@ type SMTPConfig struct {
 }
 
 // NewSMTPProvider creates a new SMTP provider
-func NewSMTPProvider(config map[string]interface{}) (Provider, error) {
+func NewSMTPProvider(config map[string]any) (Provider, error) {
 	host, ok := config["host"].(string)
 	if !ok || host == "" {
 		return nil, fmt.Errorf("%w: missing or invalid host", ErrInvalidConfig)

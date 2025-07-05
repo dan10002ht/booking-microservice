@@ -13,7 +13,7 @@ import (
 type StringArray []string
 
 // VariablesMap represents a variables map for database storage
-type VariablesMap map[string]interface{}
+type VariablesMap map[string]any
 
 // JobStatus represents the status of an email job
 type JobStatus string
@@ -71,7 +71,7 @@ func (s StringArray) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner for StringArray
-func (s *StringArray) Scan(value interface{}) error {
+func (s *StringArray) Scan(value any) error {
 	if value == nil {
 		*s = nil
 		return nil
@@ -94,7 +94,7 @@ func (m VariablesMap) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner for VariablesMap
-func (m *VariablesMap) Scan(value interface{}) error {
+func (m *VariablesMap) Scan(value any) error {
 	if value == nil {
 		*m = nil
 		return nil
@@ -109,7 +109,7 @@ func (m *VariablesMap) Scan(value interface{}) error {
 }
 
 // NewEmailJob tạo một email job mới
-func NewEmailJob(to, cc, bcc []string, templateName string, variables map[string]interface{}, priority JobPriority) *EmailJob {
+func NewEmailJob(to, cc, bcc []string, templateName string, variables map[string]any, priority JobPriority) *EmailJob {
 	return &EmailJob{
 		ID:           uuid.New(),
 		To:           StringArray(to),

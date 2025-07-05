@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"text/template"
 
-	"booking-system/email-worker/database/models"
+	"booking-system/email-worker/models"
 )
 
 // Engine handles template rendering
@@ -29,29 +29,32 @@ func NewEngine() *Engine {
 	}
 }
 
-// Render renders a template with the given variables
-func (e *Engine) Render(template *models.EmailTemplate, variables map[string]any) (string, string, string, error) {
-	// Render subject
-	subject, err := e.renderText(template.Subject, variables)
-	if err != nil {
-		return "", "", "", fmt.Errorf("failed to render subject: %w", err)
-	}
+// Render renders an email template with the given data
+func (e *Engine) Render(template *models.EmailTemplate, data map[string]any) (string, string, string, error) {
+	var subject, htmlBody, textBody string
+	var err error
 
-	// Render HTML body
-	var htmlBody string
-	if template.HTMLTemplate != "" {
-		htmlBody, err = e.renderHTML(template.HTMLTemplate, variables)
+	// Render subject
+	if template.Subject != nil {
+		subject, err = e.renderText(*template.Subject, data)
 		if err != nil {
-			return "", "", "", fmt.Errorf("failed to render HTML: %w", err)
+			return "", "", "", fmt.Errorf("failed to render subject: %w", err)
 		}
 	}
 
-	// Render text body
-	var textBody string
-	if template.TextTemplate != "" {
-		textBody, err = e.renderText(template.TextTemplate, variables)
+	// Render HTML template
+	if template.HTMLTemplate != nil && *template.HTMLTemplate != "" {
+		htmlBody, err = e.renderHTML(*template.HTMLTemplate, data)
 		if err != nil {
-			return "", "", "", fmt.Errorf("failed to render text: %w", err)
+			return "", "", "", fmt.Errorf("failed to render HTML template: %w", err)
+		}
+	}
+
+	// Render text template
+	if template.TextTemplate != nil && *template.TextTemplate != "" {
+		textBody, err = e.renderText(*template.TextTemplate, data)
+		if err != nil {
+			return "", "", "", fmt.Errorf("failed to render text template: %w", err)
 		}
 	}
 

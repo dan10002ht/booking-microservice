@@ -1,7 +1,7 @@
 version: "3.8"
 
 services:
-  # Master PostgreSQL instance
+  # Master PostgreSQL instance for Auth Service
   postgres-master:
     image: postgres:15
     environment:
@@ -30,7 +30,7 @@ services:
       -c max_wal_size=1GB
       -c min_wal_size=80MB
 
-  # Slave PostgreSQL instance 1
+  # Slave PostgreSQL instance 1 for Auth Service
   postgres-slave1:
     image: postgres:15
     environment:
@@ -61,7 +61,7 @@ services:
       -c wal_receiver_status_interval=10s
       -c hot_standby_feedback=on
 
-  # Slave PostgreSQL instance 2 (optional)
+  # Slave PostgreSQL instance 2 for Auth Service (optional)
   postgres-slave2:
     image: postgres:15
     environment:
@@ -92,8 +92,8 @@ services:
       -c wal_receiver_status_interval=10s
       -c hot_standby_feedback=on
 
-  # Legacy single postgres instance (for backward compatibility)
-  postgres:
+  # Master PostgreSQL instance for Main Application (booking_system)
+  postgres-main-master:
     image: postgres:15
     environment:
       POSTGRES_DB: booking_system
@@ -102,9 +102,86 @@ services:
     ports:
       - "55435:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_main_master_data:/var/lib/postgresql/data
+      - ./postgres-main-master-init:/docker-entrypoint-initdb.d
     networks:
       - booking-net
+    command: >
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=3
+      -c max_replication_slots=3
+      -c hot_standby=on
+      -c archive_mode=on
+      -c archive_command='test ! -f /var/lib/postgresql/backup_in_progress && (test ! -f /var/lib/postgresql/archive/%f || cp %p /var/lib/postgresql/archive/%f)'
+      -c archive_timeout=10
+      -c synchronous_commit=on
+      -c wal_sync_method=fsync
+      -c checkpoint_timeout=5min
+      -c max_wal_size=1GB
+      -c min_wal_size=80MB
+
+  # Slave PostgreSQL instance 1 for Main Application (booking_system)
+  postgres-main-slave1:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: booking_system
+      POSTGRES_USER: booking_user
+      POSTGRES_PASSWORD: booking_pass
+      POSTGRES_MASTER_HOST: postgres-main-master
+      POSTGRES_MASTER_PORT: 5432
+      POSTGRES_MASTER_USER: booking_user
+      POSTGRES_MASTER_PASSWORD: booking_pass
+    ports:
+      - "55436:5432"
+    volumes:
+      - postgres_main_slave1_data:/var/lib/postgresql/data
+      - ./postgres-main-slave-init/01-init-slave.sh:/docker-entrypoint-initdb.d/01-init-slave.sh
+    networks:
+      - booking-net
+    depends_on:
+      - postgres-main-master
+    command: >
+      postgres
+      -c hot_standby=on
+      -c primary_conninfo='host=postgres-main-master port=5432 user=replicator password=replicator_pass application_name=main-slave1'
+      -c restore_command='cp /var/lib/postgresql/archive/%f %p'
+      -c recovery_target_timeline='latest'
+      -c max_standby_archive_delay=30s
+      -c max_standby_streaming_delay=30s
+      -c wal_receiver_status_interval=10s
+      -c hot_standby_feedback=on
+
+  # Slave PostgreSQL instance 2 for Main Application (booking_system) (optional)
+  postgres-main-slave2:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: booking_system
+      POSTGRES_USER: booking_user
+      POSTGRES_PASSWORD: booking_pass
+      POSTGRES_MASTER_HOST: postgres-main-master
+      POSTGRES_MASTER_PORT: 5432
+      POSTGRES_MASTER_USER: booking_user
+      POSTGRES_MASTER_PASSWORD: booking_pass
+    ports:
+      - "55437:5432"
+    volumes:
+      - postgres_main_slave2_data:/var/lib/postgresql/data
+      - ./postgres-main-slave-init/01-init-slave2.sh:/docker-entrypoint-initdb.d/01-init-slave2.sh
+    networks:
+      - booking-net
+    depends_on:
+      - postgres-main-master
+    command: >
+      postgres
+      -c hot_standby=on
+      -c primary_conninfo='host=postgres-main-master port=5432 user=replicator password=replicator_pass application_name=main-slave2'
+      -c restore_command='cp /var/lib/postgresql/archive/%f %p'
+      -c recovery_target_timeline='latest'
+      -c max_standby_archive_delay=30s
+      -c max_standby_streaming_delay=30s
+      -c wal_receiver_status_interval=10s
+      -c hot_standby_feedback=on
 
   redis:
     image: redis:7-alpine
@@ -261,11 +338,16 @@ services:
       - PORT=8080
       - GRPC_PORT=50060
       - HOST=0.0.0.0
-      - DB_HOST=postgres-master
-      - DB_PORT=5432
-      - DB_NAME=booking_system_email
-      - DB_USER=booking_user
-      - DB_PASSWORD=booking_pass
+      - DB_MASTER_HOST=postgres-main-master
+      - DB_MASTER_PORT=5432
+      - DB_MASTER_NAME=booking_system
+      - DB_MASTER_USER=booking_user
+      - DB_MASTER_PASSWORD=booking_pass
+      - DB_SLAVE_HOST=postgres-main-slave1
+      - DB_SLAVE_PORT=5432
+      - DB_SLAVE_NAME=booking_system
+      - DB_SLAVE_USER=booking_user
+      - DB_SLAVE_PASSWORD=booking_pass
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - KAFKA_BROKERS=kafka:9092
@@ -273,7 +355,8 @@ services:
       - EMAIL_API_KEY=your_sendgrid_api_key_here
       - EMAIL_FROM=noreply@booking-system.com
     depends_on:
-      - postgres-master
+      - postgres-main-master
+      - postgres-main-slave1
       - redis
       - kafka
     volumes:
@@ -287,6 +370,9 @@ volumes:
   postgres_slave1_data:
   postgres_slave2_data:
   postgres_data:
+  postgres_main_master_data:
+  postgres_main_slave1_data:
+  postgres_main_slave2_data:
   redis_data:
   grafana_data:
   elasticsearch_data:

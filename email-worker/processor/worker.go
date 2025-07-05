@@ -236,14 +236,14 @@ func (w *Worker) calculateRetryDelay(retryCount int) time.Duration {
 }
 
 // GetStats returns worker statistics
-func (w *Worker) GetStats() map[string]interface{} {
+func (w *Worker) GetStats() map[string]any {
 	queueSize, err := w.queue.Size(context.Background())
 	if err != nil {
 		w.logger.Error("Failed to get queue size", zap.Error(err))
 		queueSize = -1
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"worker_id":  w.id,
 		"queue_size": queueSize,
 		"status":     "running",

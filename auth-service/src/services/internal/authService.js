@@ -19,6 +19,7 @@ import * as organizationManagementService from './organizationManagementService.
 import * as oauthService from './oauthService.js';
 import cacheService from './cacheService.js';
 import logger from '../../utils/logger.js';
+import { getBackgroundService } from '../../../background/backgroundService.js';
 // import * as auditService from './auditService.js'; // TODO: Implement audit service
 
 // Get repository instances from factory
@@ -131,8 +132,7 @@ export async function registerWithEmail(registerData) {
 
     // Nếu có gửi email xác thực hoặc audit log thì nên fire-and-forget ở đây (chưa có)
     try {
-      const backgroundService =
-        require('../../../background/backgroundService.js').getBackgroundService();
+      const backgroundService = getBackgroundService();
       backgroundService
         .enqueueJob(
           'email_verification',

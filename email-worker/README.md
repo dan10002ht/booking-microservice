@@ -64,6 +64,32 @@ Service → Queue → Email Worker → Email Provider
 Service → Database (create job) → Queue → Email Worker → Email Provider → Database (update status)
 ```
 
+## 🗄️ Database Configuration
+
+### Master-Slave Architecture
+
+The email worker supports a master-slave database configuration for optimal performance:
+
+- **Master Database**: Used for all write operations (INSERT, UPDATE, DELETE)
+- **Slave Database**: Used for all read operations (SELECT queries)
+- **Fallback**: If slave is unavailable, master is used for reads
+
+### Connection Behavior
+
+| Operation         | Database Used | Purpose                            |
+| ----------------- | ------------- | ---------------------------------- |
+| Create email job  | Master        | Write job to database              |
+| Update job status | Master        | Update job status after processing |
+| Get job by ID     | Slave         | Read job details                   |
+| List jobs         | Slave         | Read job list for monitoring       |
+| Get templates     | Slave         | Read email templates               |
+| Delete job        | Master        | Remove job from database           |
+
+### Configuration Priority
+
+1. **Master-Slave Configuration** (recommended): Uses `DB_MASTER_*` and `DB_SLAVE_*` variables
+2. **Legacy Single Database**: Falls back to `DB_HOST`, `DB_PORT`, etc. for backward compatibility
+
 ## 📦 Installation
 
 ### Prerequisites
@@ -103,7 +129,45 @@ docker run -d --name redis -p 6379:6379 redis:7-alpine
 docker run -d --name postgres -p 5432:5432 -e POSTGRES_DB=email_worker -e POSTGRES_PASSWORD=password postgres:15
 ```
 
-5. **Run database migrations**
+### Master-Slave Database Setup
+
+For production environments, it's recommended to use a master-slave database configuration for better performance and reliability:
+
+```bash
+# Master database
+docker run -d --name postgres-master \
+  -p 5432:5432 \
+  -e POSTGRES_DB=booking_system \
+  -e POSTGRES_USER=booking_user \
+  -e POSTGRES_PASSWORD=booking_pass \
+  postgres:15
+
+# Slave database
+docker run -d --name postgres-slave \
+  -p 5433:5432 \
+  -e POSTGRES_DB=booking_system \
+  -e POSTGRES_USER=booking_user \
+  -e POSTGRES_PASSWORD=booking_pass \
+  postgres:15
+```
+
+**Environment Variables for Master-Slave:**
+
+```bash
+DB_MASTER_HOST=localhost
+DB_MASTER_PORT=5432
+DB_MASTER_NAME=booking_system
+DB_MASTER_USER=booking_user
+DB_MASTER_PASSWORD=booking_pass
+
+DB_SLAVE_HOST=localhost
+DB_SLAVE_PORT=5433
+DB_SLAVE_NAME=booking_system
+DB_SLAVE_USER=booking_user
+DB_SLAVE_PASSWORD=booking_pass
+```
+
+6. **Run database migrations**
 
 ```bash
 # Create database
@@ -113,7 +177,7 @@ createdb email_worker
 psql -d email_worker -f database/migrations/001_initial_schema.sql
 ```
 
-6. **Start the service**
+7. **Start the service**
 
 ```bash
 go run main.go
@@ -137,29 +201,40 @@ docker run -d \
 
 ### Environment Variables
 
-| Variable                | Description                 | Default        |
-| ----------------------- | --------------------------- | -------------- |
-| `REDIS_HOST`            | Redis host                  | `localhost`    |
-| `REDIS_PORT`            | Redis port                  | `6379`         |
-| `REDIS_PASSWORD`        | Redis password              | -              |
-| `REDIS_DB`              | Redis database              | `0`            |
-| `DB_HOST`               | Database host               | `localhost`    |
-| `DB_PORT`               | Database port               | `5432`         |
-| `DB_NAME`               | Database name               | `email_worker` |
-| `DB_USER`               | Database user               | `postgres`     |
-| `DB_PASSWORD`           | Database password           | -              |
-| `SENDGRID_API_KEY`      | SendGrid API key            | -              |
-| `AWS_SES_REGION`        | AWS SES region              | `us-east-1`    |
-| `AWS_ACCESS_KEY_ID`     | AWS access key              | -              |
-| `AWS_SECRET_ACCESS_KEY` | AWS secret key              | -              |
-| `SMTP_HOST`             | SMTP host                   | -              |
-| `SMTP_PORT`             | SMTP port                   | `587`          |
-| `SMTP_USERNAME`         | SMTP username               | -              |
-| `SMTP_PASSWORD`         | SMTP password               | -              |
-| `WORKER_COUNT`          | Number of worker goroutines | `5`            |
-| `QUEUE_NAME`            | Queue name for email jobs   | `email-jobs`   |
-| `MAX_RETRIES`           | Maximum retry attempts      | `3`            |
-| `LOG_LEVEL`             | Logging level               | `info`         |
+| Variable                | Description                 | Default          |
+| ----------------------- | --------------------------- | ---------------- |
+| `REDIS_HOST`            | Redis host                  | `localhost`      |
+| `REDIS_PORT`            | Redis port                  | `6379`           |
+| `REDIS_PASSWORD`        | Redis password              | -                |
+| `REDIS_DB`              | Redis database              | `0`              |
+| `DB_MASTER_HOST`        | Master database host        | `localhost`      |
+| `DB_MASTER_PORT`        | Master database port        | `5432`           |
+| `DB_MASTER_NAME`        | Master database name        | `booking_system` |
+| `DB_MASTER_USER`        | Master database user        | `postgres`       |
+| `DB_MASTER_PASSWORD`    | Master database password    | -                |
+| `DB_SLAVE_HOST`         | Slave database host         | `localhost`      |
+| `DB_SLAVE_PORT`         | Slave database port         | `5433`           |
+| `DB_SLAVE_NAME`         | Slave database name         | `booking_system` |
+| `DB_SLAVE_USER`         | Slave database user         | `postgres`       |
+| `DB_SLAVE_PASSWORD`     | Slave database password     | -                |
+| `DB_SSL_MODE`           | Database SSL mode           | `disable`        |
+| `DB_MAX_OPEN_CONNS`     | Max open connections        | `25`             |
+| `DB_MAX_IDLE_CONNS`     | Max idle connections        | `5`              |
+| `DB_CONN_MAX_LIFETIME`  | Connection max lifetime     | `5m`             |
+| `SENDGRID_API_KEY`      | SendGrid API key            | -                |
+| `AWS_SES_REGION`        | AWS SES region              | `us-east-1`      |
+| `AWS_ACCESS_KEY_ID`     | AWS access key              | -                |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key              | -                |
+| `SMTP_HOST`             | SMTP host                   | -                |
+| `SMTP_PORT`             | SMTP port                   | `587`            |
+| `SMTP_USERNAME`         | SMTP username               | -                |
+| `SMTP_PASSWORD`         | SMTP password               | -                |
+| `WORKER_COUNT`          | Number of worker goroutines | `5`              |
+| `QUEUE_NAME`            | Queue name for email jobs   | `email-jobs`     |
+| `MAX_RETRIES`           | Maximum retry attempts      | `3`              |
+| `LOG_LEVEL`             | Logging level               | `info`           |
+
+**Note**: For backward compatibility, legacy single database configuration is also supported using `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, and `DB_PASSWORD` variables.
 
 ### Configuration File
 
@@ -177,12 +252,28 @@ queue:
   poll_interval: 1s
 
 database:
-  host: localhost
-  port: 5432
-  name: email_worker
-  user: postgres
-  password: password
+  # Master-slave configuration (recommended)
+  master_host: localhost
+  master_port: 5432
+  master_name: booking_system
+  master_user: postgres
+  master_password: password
+  slave_host: localhost
+  slave_port: 5433
+  slave_name: booking_system
+  slave_user: postgres
+  slave_password: password
   ssl_mode: disable
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 5m
+
+  # Legacy single database configuration (for backward compatibility)
+  # host: localhost
+  # port: 5432
+  # name: email_worker
+  # user: postgres
+  # password: password
 
 email:
   default_provider: sendgrid
@@ -201,18 +292,24 @@ email:
       port: 587
       username: your_email@gmail.com
       password: your_app_password
-      from_email: noreply@example.com
+      use_tls: true
 
 worker:
-  count: 5
+  worker_count: 5
+  batch_size: 10
+  poll_interval: 1s
   max_retries: 3
   retry_delay: 5s
+  process_timeout: 30s
   cleanup_interval: 1h
+
+server:
+  port: 8080
+  grpc_port: 50060
 
 logging:
   level: info
   format: json
-  output_path: logs/email-worker.log
 ```
 
 ## 📊 Database Schema

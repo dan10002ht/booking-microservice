@@ -47,7 +47,7 @@ func NewTemplateRenderer() *TemplateRenderer {
 }
 
 // RenderHTML renders HTML template with data
-func (r *TemplateRenderer) RenderHTML(templateContent string, data map[string]interface{}) (string, error) {
+func (r *TemplateRenderer) RenderHTML(templateContent string, data map[string]any) (string, error) {
 	tmpl, err := template.New("html").Funcs(r.funcMap).Parse(templateContent)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse HTML template: %w", err)
@@ -62,7 +62,7 @@ func (r *TemplateRenderer) RenderHTML(templateContent string, data map[string]in
 }
 
 // RenderText renders text template with data
-func (r *TemplateRenderer) RenderText(templateContent string, data map[string]interface{}) (string, error) {
+func (r *TemplateRenderer) RenderText(templateContent string, data map[string]any) (string, error) {
 	tmpl, err := template.New("text").Funcs(r.funcMap).Parse(templateContent)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse text template: %w", err)
@@ -77,7 +77,7 @@ func (r *TemplateRenderer) RenderText(templateContent string, data map[string]in
 }
 
 // RenderSubject renders subject template with data
-func (r *TemplateRenderer) RenderSubject(subjectTemplate string, data map[string]interface{}) (string, error) {
+func (r *TemplateRenderer) RenderSubject(subjectTemplate string, data map[string]any) (string, error) {
 	tmpl, err := template.New("subject").Funcs(r.funcMap).Parse(subjectTemplate)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse subject template: %w", err)
@@ -130,12 +130,12 @@ func (r *TemplateRenderer) ExtractVariables(templateContent string) ([]string, e
 }
 
 // ParseTemplateData parses JSON template data
-func (r *TemplateRenderer) ParseTemplateData(dataJSON string) (map[string]interface{}, error) {
+func (r *TemplateRenderer) ParseTemplateData(dataJSON string) (map[string]any, error) {
 	if dataJSON == "" {
-		return make(map[string]interface{}), nil
+		return make(map[string]any), nil
 	}
 
-	var data map[string]interface{}
+	var data map[string]any
 	if err := json.Unmarshal([]byte(dataJSON), &data); err != nil {
 		return nil, fmt.Errorf("failed to parse template data JSON: %w", err)
 	}
@@ -144,7 +144,7 @@ func (r *TemplateRenderer) ParseTemplateData(dataJSON string) (map[string]interf
 }
 
 // ValidateTemplateData validates that all required variables are provided
-func (r *TemplateRenderer) ValidateTemplateData(templateContent string, data map[string]interface{}) error {
+func (r *TemplateRenderer) ValidateTemplateData(templateContent string, data map[string]any) error {
 	variables, err := r.ExtractVariables(templateContent)
 	if err != nil {
 		return fmt.Errorf("failed to extract variables: %w", err)

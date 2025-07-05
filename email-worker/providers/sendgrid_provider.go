@@ -25,7 +25,7 @@ type SendGridConfig struct {
 }
 
 // NewSendGridProvider creates a new SendGrid provider
-func NewSendGridProvider(config map[string]interface{}) (Provider, error) {
+func NewSendGridProvider(config map[string]any) (Provider, error) {
 	apiKey, ok := config["api_key"].(string)
 	if !ok || apiKey == "" {
 		return nil, fmt.Errorf("%w: missing or invalid api_key", ErrInvalidConfig)

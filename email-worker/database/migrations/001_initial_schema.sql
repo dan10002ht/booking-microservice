@@ -6,7 +6,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Email Jobs Table
-CREATE TABLE email_jobs (
+CREATE TABLE IF NOT EXISTS email_jobs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     to_emails TEXT[] NOT NULL, -- Array of recipient emails
     cc_emails TEXT[], -- Array of CC emails
@@ -25,7 +25,7 @@ CREATE TABLE email_jobs (
 );
 
 -- Email Templates Table
-CREATE TABLE email_templates (
+CREATE TABLE IF NOT EXISTS email_templates (
     id VARCHAR(100) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     subject VARCHAR(500),
@@ -38,7 +38,7 @@ CREATE TABLE email_templates (
 );
 
 -- Email Tracking Table
-CREATE TABLE email_tracking (
+CREATE TABLE IF NOT EXISTS email_tracking (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     job_id UUID REFERENCES email_jobs(id) ON DELETE CASCADE,
     provider VARCHAR(50),

@@ -11,11 +11,11 @@ import (
 	"booking-system/email-worker/config"
 	"booking-system/email-worker/database"
 	"booking-system/email-worker/database/migrations"
-	"booking-system/email-worker/database/repositories"
 	"booking-system/email-worker/metrics"
 	"booking-system/email-worker/processor"
 	"booking-system/email-worker/providers"
 	"booking-system/email-worker/queue"
+	"booking-system/email-worker/repositories"
 	"booking-system/email-worker/services"
 	"booking-system/email-worker/templates"
 )
@@ -59,16 +59,16 @@ func (a *App) Initialize() error {
 	a.logger.Info("Database migrations completed")
 
 	// Initialize repositories
-	jobRepo := repositories.NewEmailJobRepository(db)
-	templateRepo := repositories.NewEmailTemplateRepository(db)
+	jobRepo := repositories.NewEmailJobRepository(db.GetSQLDB(), a.logger)
+	templateRepo := repositories.NewEmailTemplateRepository(db.GetSQLDB(), a.logger)
 
 	// Initialize template engine
 	templateEngine := templates.NewEngine()
 
 	// Initialize email provider factory
-	providerConfig := make(map[string]interface{})
+	providerConfig := make(map[string]any)
 	for name, config := range a.config.Email.Providers {
-		providerConfig[name] = map[string]interface{}{
+		providerConfig[name] = map[string]any{
 			"api_key":     config.APIKey,
 			"region":      config.Region,
 			"access_key":  config.AccessKey,
@@ -84,7 +84,9 @@ func (a *App) Initialize() error {
 	providerFactory := providers.NewProviderFactory(providerConfig)
 	emailProvider, err := providerFactory.CreateProvider(providers.ProviderType(a.config.Email.DefaultProvider))
 	if err != nil {
-		return fmt.Errorf("failed to create email provider: %w", err)
+		a.logger.Warn("Failed to create email provider, email sending will be disabled", zap.Error(err))
+		// Set emailProvider to nil - email service will handle this gracefully
+		emailProvider = nil
 	}
 
 	// Initialize email service

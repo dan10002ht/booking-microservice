@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package security;
 
+
 // Security Service
 service SecurityService {
   // Event Management

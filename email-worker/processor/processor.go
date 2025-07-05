@@ -289,8 +289,8 @@ func (p *Processor) PublishScheduledJob(ctx context.Context, job *models.EmailJo
 }
 
 // GetWorkerStats returns statistics for all workers
-func (p *Processor) GetWorkerStats() []map[string]interface{} {
-	stats := make([]map[string]interface{}, len(p.workers))
+func (p *Processor) GetWorkerStats() []map[string]any {
+	stats := make([]map[string]any, len(p.workers))
 	for i, worker := range p.workers {
 		stats[i] = worker.GetStats()
 	}

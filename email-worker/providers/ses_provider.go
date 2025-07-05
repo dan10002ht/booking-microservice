@@ -29,7 +29,7 @@ type SESConfig struct {
 }
 
 // NewSESProvider creates a new AWS SES provider
-func NewSESProvider(config map[string]interface{}) (Provider, error) {
+func NewSESProvider(config map[string]any) (Provider, error) {
 	region, ok := config["region"].(string)
 	if !ok || region == "" {
 		return nil, fmt.Errorf("%w: missing or invalid region", ErrInvalidConfig)

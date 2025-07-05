@@ -7,8 +7,8 @@ import (
 	"math/big"
 	"time"
 
-	"booking-system/email-worker/database/repositories"
 	"booking-system/email-worker/models"
+	"booking-system/email-worker/repositories"
 )
 
 // EmailVerificationService handles email verification operations
@@ -72,7 +72,7 @@ func (s *EmailVerificationService) SendVerificationEmail(ctx context.Context, da
 	}
 
 	// Prepare template variables
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"UserName":        data.UserName,
 		"UserEmail":       data.UserEmail,
 		"PinCode":         data.PinCode,
@@ -127,7 +127,7 @@ func (s *EmailVerificationService) SendVerificationReminder(ctx context.Context,
 	data.ExpiryTime = 30 // 30 minutes for reminder
 
 	// Prepare template variables
-	variables := map[string]interface{}{
+	variables := map[string]any{
 		"UserName":        data.UserName,
 		"UserEmail":       data.UserEmail,
 		"PinCode":         data.PinCode,

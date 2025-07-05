@@ -11,9 +11,9 @@ import (
 	"google.golang.org/grpc/reflection"
 
 	"booking-system/email-worker/config"
-	"booking-system/email-worker/internal/protos"
 	"booking-system/email-worker/models"
 	"booking-system/email-worker/processor"
+	"booking-system/email-worker/protos"
 )
 
 // Server represents the gRPC server
@@ -226,8 +226,8 @@ func (s *Server) createEmailJobFromRequest(req *protos.CreateEmailJobRequest) *m
 		priority = models.JobPriorityNormal
 	}
 
-	// Convert variables from map[string]string to map[string]interface{}
-	variables := make(map[string]interface{})
+	// Convert variables from map[string]string to map[string]any
+	variables := make(map[string]any)
 	for k, v := range req.Variables {
 		variables[k] = v
 	}

@@ -12,6 +12,17 @@ kill_port() {
     
     echo "🔍 Checking if port $port is in use by $service_name..."
     
+    # Check if it's a Docker container using the port
+    local container_id=$(docker ps --format "table {{.ID}}\t{{.Ports}}" | grep ":$port->" | awk '{print $1}' | head -1)
+    if [ ! -z "$container_id" ]; then
+        echo "🐳 Found Docker container using port $port: $container_id"
+        echo "🛑 Stopping container $container_id..."
+        docker stop $container_id 2>/dev/null || true
+        echo "🗑️ Removing container $container_id..."
+        docker rm $container_id 2>/dev/null || true
+        sleep 3
+    fi
+    
     # Find all processes using the port
     local pids=$(ss -tlnp | grep ":$port " | awk '{print $7}' | sed 's/.*pid=\([0-9]*\).*/\1/' | sort -u)
     
@@ -141,6 +152,14 @@ kill_port 53000 "gateway"
 kill_port 8080 "email-worker"
 kill_port 2112 "email-worker-metrics"
 
+# Kill PostgreSQL ports
+kill_port 55432 "postgres-master"
+kill_port 55433 "postgres-slave1"
+kill_port 55434 "postgres-slave2"
+kill_port 55435 "postgres-main-master"
+kill_port 55436 "postgres-main-slave1"
+kill_port 55437 "postgres-main-slave2"
+
 # Start infrastructure services
 echo "🐳 Starting infrastructure services..."
 cd deploy
@@ -148,15 +167,15 @@ cd deploy
 # Use docker compose v2 instead of docker-compose
 if command -v docker &> /dev/null && docker compose version &> /dev/null; then
     echo "✅ Using Docker Compose v2"
-    docker compose -f docker-compose.dev.yml up -d redis postgres-master postgres-slave1 postgres-slave2 kafka zookeeper prometheus grafana elasticsearch kibana auth-service email-worker gateway
+    docker compose -f docker-compose.dev.yml up -d redis postgres-master postgres-slave1 postgres-slave2 postgres-main-master postgres-main-slave1 postgres-main-slave2 kafka zookeeper prometheus grafana elasticsearch kibana
 else
     echo "❌ Docker Compose v2 not available, trying docker-compose..."
-    docker-compose -f docker-compose.dev.yml up -d redis postgres-master postgres-slave1 postgres-slave2 kafka zookeeper prometheus grafana elasticsearch kibana auth-service email-worker gateway
+    docker-compose -f docker-compose.dev.yml up -d redis postgres-master postgres-slave1 postgres-slave2 postgres-main-master postgres-main-slave1 postgres-main-slave2 kafka zookeeper prometheus grafana elasticsearch kibana
 fi
 
 # Wait for infrastructure to be ready
 echo "⏳ Waiting for infrastructure services to be ready..."
-sleep 15
+sleep 20
 
 # Go back to root directory
 cd ..
@@ -164,8 +183,17 @@ cd ..
 # Start services in order
 echo "🎯 Starting microservices..."
 
-# 1. Auth Service (port 50051) - Now running in Docker
-echo "🔐 Auth Service is running in Docker..."
+# 1. Auth Service (port 50051)
+echo "🔐 Starting Auth Service..."
+cd auth-service
+if [ ! -d "node_modules" ]; then
+    echo "📦 Installing auth-service dependencies..."
+    yarn install
+fi
+echo "🚀 Starting auth-service with dev:local..."
+yarn dev:local &
+AUTH_PID=$!
+cd ..
 
 # Wait for auth service to be ready
 echo "⏳ Waiting for auth-service to be ready..."
@@ -209,11 +237,60 @@ sleep 15
 #     sleep 10
 # fi
 
-# 4. Email Worker Service (port 8080) - Now running in Docker
-echo "📧 Email Worker Service is running in Docker..."
+# 4. Email Worker Service (port 8080)
+echo "📧 Starting Email Worker Service..."
+cd email-worker
+if [ -f "scripts/dev-local.sh" ]; then
+    echo "🚀 Starting email-worker with dev-local script..."
+    chmod +x scripts/dev-local.sh
+    ./scripts/dev-local.sh &
+    EMAIL_WORKER_PID=$!
+else
+    echo "⚠️  dev-local.sh not found, starting email-worker directly..."
+    if [ ! -f ".env" ]; then
+        echo "📋 Copying environment configuration..."
+        cp env.example .env
+        
+        # Update database configuration for local development
+        echo "🔧 Updating database configuration..."
+        # Master database
+        sed -i 's/DB_MASTER_PORT=55435/DB_MASTER_PORT=55435/' .env
+        sed -i 's/DB_MASTER_USER=booking_user/DB_MASTER_USER=booking_user/' .env
+        sed -i 's/DB_MASTER_PASSWORD=booking_pass/DB_MASTER_PASSWORD=booking_pass/' .env
+        # Slave database
+        sed -i 's/DB_SLAVE_PORT=55436/DB_SLAVE_PORT=55436/' .env
+        sed -i 's/DB_SLAVE_USER=booking_user/DB_SLAVE_USER=booking_user/' .env
+        sed -i 's/DB_SLAVE_PASSWORD=booking_pass/DB_SLAVE_PASSWORD=booking_pass/' .env
+        # Redis and Kafka
+        sed -i 's/REDIS_PORT=6379/REDIS_PORT=56379/' .env
+        sed -i 's/KAFKA_BROKERS=localhost:9092/KAFKA_BROKERS=localhost:59092/' .env
+    fi
 
-# 5. Gateway Service (port 53000) - Now running in Docker
-echo "🌐 Gateway Service is running in Docker..."
+    echo "📦 Installing email-worker dependencies..."
+    go mod tidy
+
+    echo "🚀 Starting email-worker..."
+    go run main.go &
+    EMAIL_WORKER_PID=$!
+fi
+cd ..
+
+# Wait for email worker to be ready
+echo "⏳ Waiting for email-worker to be ready..."
+sleep 10
+
+# 5. Gateway Service (port 53000)
+echo "🌐 Starting Gateway Service..."
+cd gateway
+if [ ! -d "node_modules" ]; then
+    echo "📦 Installing gateway dependencies..."
+    yarn install
+fi
+echo "🚀 Starting gateway with dev:local..."
+yarn dev:local &
+GATEWAY_PID=$!
+cd ..
+
 
 echo ""
 echo "🎉 All services started successfully!"
@@ -246,15 +323,34 @@ cleanup() {
     echo ""
     echo "🛑 Stopping all services..."
     
-    # Stop Docker containers
-    echo "🛑 Stopping Docker containers..."
-    cd deploy
-    if command -v docker &> /dev/null && docker compose version &> /dev/null; then
-        docker compose -f docker-compose.dev.yml down
-    else
-        docker-compose -f docker-compose.dev.yml down
+      # Kill background processes
+    if [ ! -z "$AUTH_PID" ]; then
+        echo "🛑 Stopping auth-service (PID: $AUTH_PID)..."
+        kill -9 $AUTH_PID 2>/dev/null
     fi
-    cd ..
+    
+    # if [ ! -z "$DEVICE_PID" ]; then
+    #     echo "🛑 Stopping device-service (PID: $DEVICE_PID)..."
+    #     kill -9 $DEVICE_PID 2>/dev/null
+    # fi
+    
+    # if [ ! -z "$SECURITY_PID" ]; then
+    #     echo "🛑 Stopping security-service (PID: $SECURITY_PID)..."
+    #     kill -9 $SECURITY_PID 2>/dev/null
+    # fi
+    
+    if [ ! -z "$EMAIL_WORKER_PID" ]; then
+        echo "🛑 Stopping email-worker (PID: $EMAIL_WORKER_PID)..."
+        # Kill the main process and all child processes
+        pkill -P $EMAIL_WORKER_PID 2>/dev/null || true
+        kill -9 $EMAIL_WORKER_PID 2>/dev/null || true
+    fi
+
+    if [ ! -z "$GATEWAY_PID" ]; then
+        echo "🛑 Stopping gateway (PID: $GATEWAY_PID)..."
+        kill -9 $GATEWAY_PID 2>/dev/null
+    fi
+
     
     echo "✅ All services stopped"
     exit 0
