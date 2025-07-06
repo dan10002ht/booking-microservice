@@ -2,12 +2,17 @@ syntax = "proto3";
 
 package email;
 
-
 import "google/protobuf/timestamp.proto";
 
-// Email Service provides gRPC endpoints for email job management
+// Email Service provides comprehensive email management including job queuing, 
+// template management, and specialized verification flows
 service EmailService {
-  // Email job management
+  // Email Verification (Specialized methods)
+  rpc SendVerificationEmail(SendVerificationEmailRequest) returns (SendVerificationEmailResponse);
+  rpc SendVerificationReminder(SendVerificationReminderRequest) returns (SendVerificationReminderResponse);
+  rpc ResendVerificationEmail(ResendVerificationEmailRequest) returns (SendVerificationEmailResponse);
+  
+  // Email Job Management (Generic methods)
   rpc CreateEmailJob(CreateEmailJobRequest) returns (CreateEmailJobResponse);
   rpc CreateTrackedEmailJob(CreateEmailJobRequest) returns (CreateEmailJobResponse);
   rpc GetEmailJob(GetEmailJobRequest) returns (GetEmailJobResponse);
@@ -17,35 +22,19 @@ service EmailService {
   rpc GetJobStats(GetJobStatsRequest) returns (GetJobStatsResponse);
   rpc GetQueueStats(GetQueueStatsRequest) returns (GetQueueStatsResponse);
   
-  // Email templates
+  // Email Templates
   rpc GetEmailTemplate(GetEmailTemplateRequest) returns (GetEmailTemplateResponse);
   rpc ListEmailTemplates(ListEmailTemplatesRequest) returns (ListEmailTemplatesResponse);
   rpc CreateEmailTemplate(CreateEmailTemplateRequest) returns (CreateEmailTemplateResponse);
   rpc UpdateEmailTemplate(UpdateEmailTemplateRequest) returns (UpdateEmailTemplateResponse);
   rpc DeleteEmailTemplate(DeleteEmailTemplateRequest) returns (DeleteEmailTemplateResponse);
   
-  // Email tracking
+  // Email Tracking
   rpc GetEmailTracking(GetEmailTrackingRequest) returns (GetEmailTrackingResponse);
   rpc UpdateEmailTracking(UpdateEmailTrackingRequest) returns (UpdateEmailTrackingResponse);
   
-  // Health check
+  // Health & Monitoring (Single health endpoint)
   rpc Health(HealthRequest) returns (HealthResponse);
-  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
-}
-
-// Email Verification Service
-service EmailVerificationService {
-  // Send verification email with PIN code
-  rpc SendVerificationEmail(SendVerificationEmailRequest) returns (SendVerificationEmailResponse);
-  
-  // Send verification reminder email
-  rpc SendVerificationReminder(SendVerificationReminderRequest) returns (SendVerificationReminderResponse);
-  
-  // Validate PIN code
-  rpc ValidatePinCode(ValidatePinCodeRequest) returns (ValidatePinCodeResponse);
-  
-  // Resend verification email
-  rpc ResendVerificationEmail(ResendVerificationEmailRequest) returns (ResendVerificationEmailResponse);
 }
 
 // Email Job Management
@@ -271,19 +260,6 @@ message HealthResponse {
   string version = 3;
 }
 
-message HealthCheckRequest {}
-
-message HealthCheckResponse {
-  string status = 1;
-  string version = 2;
-  google.protobuf.Timestamp timestamp = 3;
-  int64 uptime_seconds = 4;
-  bool queue_healthy = 5;
-  bool database_healthy = 6;
-  map<string, bool> providers_healthy = 7;
-  string message = 8;
-}
-
 // Email Verification
 message SendVerificationEmailRequest {
   string user_id = 1;
@@ -315,18 +291,6 @@ message SendVerificationReminderResponse {
   string job_id = 3;
   string pin_code = 4;  // New PIN code
   int64 expiry_timestamp = 5;
-}
-
-message ValidatePinCodeRequest {
-  string user_id = 1;
-  string pin_code = 2;
-  int64 expiry_timestamp = 3;
-}
-
-message ValidatePinCodeResponse {
-  bool valid = 1;
-  string message = 2;
-  bool expired = 3;
 }
 
 message ResendVerificationEmailRequest {

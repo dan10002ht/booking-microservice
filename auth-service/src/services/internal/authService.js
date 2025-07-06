@@ -18,8 +18,7 @@ import {
 import * as organizationManagementService from './organizationManagementService.js';
 import * as oauthService from './oauthService.js';
 import cacheService from './cacheService.js';
-import logger from '../../utils/logger.js';
-import { getBackgroundService } from '../../../background/backgroundService.js';
+import { getBackgroundService } from '../../background/backgroundService.js';
 // import * as auditService from './auditService.js'; // TODO: Implement audit service
 
 // Get repository instances from factory
@@ -29,6 +28,9 @@ const userRoleRepository = getUserRoleRepository();
 const oauthAccountRepository = getOAuthAccountRepository();
 const refreshTokenRepository = getRefreshTokenRepository();
 const userSessionRepository = getUserSessionRepository();
+
+// Initialize background service
+const backgroundService = getBackgroundService();
 
 // ========== HELPER FUNCTIONS ==========
 
@@ -112,7 +114,6 @@ export async function registerWithEmail(registerData) {
       user_agent: user_agent,
     };
 
-    // Prepare refresh token data
     const refreshTokenData = {
       user_id: newUser.id,
       session_id: sessionData.session_id, // Link với session
@@ -124,33 +125,36 @@ export async function registerWithEmail(registerData) {
 
     await createUserSessionAndRefreshToken(newUser.id, sessionData, refreshTokenData);
 
-    // Song song hóa các thao tác cache/token/session
-    await Promise.all([
-      cacheService.cacheUserProfile(newUser.public_id, userProfile),
-      cacheService.cacheUserRoles(newUser.public_id, userWithRoles.roles || []),
-    ]);
+    // Đưa cache operations và email verification sang background
+    // Cache operations
+    backgroundService.enqueueJob(
+      'cache_user_data',
+      {
+        userId: newUser.public_id,
+        userProfile: userProfile,
+        userRoles: userWithRoles.roles || [],
+      },
+      {
+        priority: 'normal',
+        maxRetries: 2,
+        timeout: 15000,
+      }
+    );
 
-    // Nếu có gửi email xác thực hoặc audit log thì nên fire-and-forget ở đây (chưa có)
-    try {
-      const backgroundService = getBackgroundService();
-      backgroundService
-        .enqueueJob(
-          'email_verification',
-          {
-            userId: newUser.id,
-            userEmail: newUser.email,
-            userName: newUser.first_name || newUser.email,
-          },
-          {
-            priority: 'high',
-            maxRetries: 3,
-            timeout: 30000,
-          }
-        )
-        .catch((err) => logger.warn('Enqueue job gửi email xác thực thất bại:', err));
-    } catch (err) {
-      logger.warn('Không thể enqueue job gửi email xác thực:', err);
-    }
+    // Email verification
+    backgroundService.enqueueJob(
+      'email_verification',
+      {
+        userId: newUser.id,
+        userEmail: newUser.email,
+        userName: newUser.first_name || newUser.email,
+      },
+      {
+        priority: 'high',
+        maxRetries: 3,
+        timeout: 30000,
+      }
+    );
 
     return {
       user: userProfile,

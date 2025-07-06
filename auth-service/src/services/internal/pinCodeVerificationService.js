@@ -1,8 +1,8 @@
 // crypto import removed as it's not used
 import { getUserRepository } from '../../repositories/repositoryFactory.js';
 import { sanitizeUserForResponse } from '../../utils/sanitizers.js';
-import { validatePinCodeFromRedis } from '../../../background/jobs/emailVerificationJob.js';
-import { getBackgroundService } from '../../../background/backgroundService.js';
+import { validatePinCodeFromRedis } from '../../background/jobs/emailVerificationJob.js';
+import { getBackgroundService } from '../../background/backgroundService.js';
 
 const userRepository = getUserRepository();
 

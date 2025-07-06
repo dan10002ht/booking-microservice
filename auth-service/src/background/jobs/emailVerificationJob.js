@@ -1,50 +1,6 @@
 import Redis from 'ioredis';
-import grpc from '@grpc/grpc-js';
-import protoLoader from '@grpc/proto-loader';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
-import logger from '../logger.js';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load email-worker proto
-const dockerSharedProtoPath = path.join('/shared-lib', 'protos', 'email.proto');
-const localSharedProtoPath = path.join(
-  __dirname,
-  '..',
-  '..',
-  '..',
-  'shared-lib',
-  'protos',
-  'email.proto'
-);
-const localProtoPath = path.join(__dirname, '..', 'proto', 'email.proto');
-
-let EMAIL_PROTO_PATH;
-if (fs.existsSync(dockerSharedProtoPath)) {
-  EMAIL_PROTO_PATH = dockerSharedProtoPath;
-} else if (fs.existsSync(localSharedProtoPath)) {
-  EMAIL_PROTO_PATH = localSharedProtoPath;
-} else {
-  EMAIL_PROTO_PATH = localProtoPath;
-}
-
-let emailProto;
-try {
-  const packageDefinition = protoLoader.loadSync(EMAIL_PROTO_PATH, {
-    keepCase: true,
-    longs: String,
-    enums: String,
-    defaults: true,
-    oneofs: true,
-  });
-  emailProto = grpc.loadPackageDefinition(packageDefinition).email;
-} catch (error) {
-  logger.warn('Email proto not found, using fallback implementation');
-  emailProto = null;
-}
+import logger from '../../utils/logger.js';
+import { grpcClients } from '../../grpc/clients.js';
 
 // Initialize Redis client for PIN code storage
 const redis = new Redis({
@@ -64,19 +20,22 @@ const redis = new Redis({
  */
 
 export async function handleEmailVerificationJob(jobData) {
-  const { userId, userEmail, userName, pinCode, isResend = false } = jobData;
+  const { userId, userEmail, userName, isResend = false } = jobData;
 
   try {
     logger.info(`Processing email verification job for user: ${userId}`);
 
-    // 1. Store PIN code in Redis with TTL (15 minutes)
+    // 1. Generate PIN code (6 digits)
+    const pinCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // 2. Store PIN code in Redis with TTL (15 minutes)
     const redisKey = `email_verification:${userId}`;
     const ttlSeconds = 15 * 60; // 15 minutes
 
     await redis.setex(redisKey, ttlSeconds, pinCode);
     logger.info(`PIN code stored in Redis for user: ${userId}, TTL: ${ttlSeconds}s`);
 
-    // 2. Send verification email via gRPC to email-worker
+    // 3. Send verification email via gRPC to email-worker
     await sendVerificationEmailViaGrpc({
       userId,
       userEmail,
@@ -112,51 +71,20 @@ export async function handleEmailVerificationJob(jobData) {
  */
 async function sendVerificationEmailViaGrpc(data) {
   try {
-    if (!emailProto) {
-      logger.warn('Email proto not available, using fallback implementation');
-      logger.info('Sending verification email via gRPC:', {
-        userId: data.userId,
-        userEmail: data.userEmail,
-        userName: data.userName,
-        pinCode: data.pinCode,
-        isResend: data.isResend,
-      });
-      return;
-    }
-
-    // Create gRPC client for email-worker
-    const emailWorkerUrl = process.env.EMAIL_WORKER_URL || 'localhost:50060';
-    const emailClient = new emailProto.EmailService(
-      emailWorkerUrl,
-      grpc.credentials.createInsecure()
-    );
-
-    // Prepare email data
-    const emailData = {
-      to: data.userEmail,
-      subject: data.isResend ? 'Email Verification - New PIN Code' : 'Email Verification',
-      template: 'email_verification',
-      data: {
-        userName: data.userName,
-        pinCode: data.pinCode,
-        expiryTime: 15,
-        verificationUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?user_id=${data.userId}&code=${data.pinCode}`,
-        isResend: data.isResend,
-      },
+    // Prepare verification email data
+    const verificationData = {
+      user_id: data.userId,
+      user_email: data.userEmail,
+      user_name: data.userName,
+      pin_code: data.pinCode,
+      is_resend: data.isResend,
+      expiry_minutes: 15,
+      verification_url: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?user_id=${data.userId}&code=${data.pinCode}`,
     };
 
-    // Send email via gRPC
-    await new Promise((resolve, reject) => {
-      emailClient.SendEmail(emailData, (error, response) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve(response);
-        }
-      });
-    });
-
-    logger.info(`Verification email sent successfully to ${data.userEmail}`);
+    const response =
+      await grpcClients.emailVerificationService.sendVerificationEmail(verificationData);
+    logger.info(`Verification email sent successfully to ${data.userEmail}`, response);
   } catch (error) {
     logger.error('Failed to send verification email via gRPC:', error);
     throw new Error(`Email sending failed: ${error.message}`);

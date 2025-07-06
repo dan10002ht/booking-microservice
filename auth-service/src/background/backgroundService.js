@@ -245,38 +245,43 @@ class BackgroundService {
    * Enqueue job for background processing
    */
   async enqueueJob(jobType, data, options = {}) {
-    const jobId = uuidv4();
-    const job = {
-      id: jobId,
-      type: jobType,
-      data,
-      priority: options.priority || 'normal',
-      retries: 0,
-      maxRetries: options.maxRetries || this.config.job.defaultRetries,
-      timeout: options.timeout || this.config.job.defaultTimeout,
-      delay: options.delay || 0, // Delay in milliseconds
-      createdAt: new Date().toISOString(),
-      ...options,
-    };
+    try {
+      const jobId = uuidv4();
+      const job = {
+        id: jobId,
+        type: jobType,
+        data,
+        priority: options.priority || 'normal',
+        retries: 0,
+        maxRetries: options.maxRetries || this.config.job.defaultRetries,
+        timeout: options.timeout || this.config.job.defaultTimeout,
+        delay: options.delay || 0, // Delay in milliseconds
+        createdAt: new Date().toISOString(),
+        ...options,
+      };
 
-    // Add to active jobs map
-    this.activeJobs.set(jobId, {
-      ...job,
-      status: 'queued',
-      queuedAt: new Date(),
-    });
+      // Add to active jobs map
+      this.activeJobs.set(jobId, {
+        ...job,
+        status: 'queued',
+        queuedAt: new Date(),
+      });
 
-    // Enqueue with delay if specified
-    if (job.delay > 0) {
-      setTimeout(() => {
-        this.addToQueue(job);
-      }, job.delay);
-    } else {
-      await this.addToQueue(job);
+      // Enqueue with delay if specified
+      if (job.delay > 0) {
+        setTimeout(() => {
+          this.addToQueue(job);
+        }, job.delay);
+      } else {
+        await this.addToQueue(job);
+      }
+
+      logger.debug(`Job ${jobId} enqueued with priority ${job.priority}`);
+      return { jobId, status: 'queued' };
+    } catch (error) {
+      logger.error(`Failed to enqueue job ${jobType}:`, error);
+      throw error; // Re-throw để caller có thể handle nếu cần
     }
-
-    logger.debug(`Job ${jobId} enqueued with priority ${job.priority}`);
-    return { jobId, status: 'queued' };
   }
 
   /**
@@ -552,6 +557,14 @@ class BackgroundService {
    */
   updateMetrics(job, processingTime, success) {
     this.metrics.jobsProcessed++;
+
+    if (success) {
+      // Job succeeded
+      this.metrics.jobsFailed = Math.max(0, this.metrics.jobsFailed - 1);
+    } else {
+      // Job failed
+      this.metrics.jobsFailed++;
+    }
 
     // Update average processing time
     const currentAvg = this.metrics.averageProcessingTime;
